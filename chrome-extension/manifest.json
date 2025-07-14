@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Fake Review Detector",
+  "version": "1.0",
+  "description": "Classify reviews using FastAPI backend",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab"]
+}
