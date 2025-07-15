@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle form submission
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const model = document.getElementById('modelSelect').value;
     const text = reviewText.value.trim();
 
     if (!text) {
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8080/durian/review', {
+      const response = await fetch('http://localhost:8000/durian/review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -29,39 +28,46 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        const errorText = await response.text();
+        throw new Error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
       }
 
-      const data = await response.json();
-      labelSpan.textContent = data.label || 'N/A';
-      confidenceSpan.textContent = data.confidence ? `${(data.confidence * 100).toFixed(2)}%` : 'N/A';
+      let data;
+      try {
+        data = await response.json();
+        console.log('Response data:', data);
+      } catch (jsonError) {
+        throw new Error(`Failed to parse JSON response: ${jsonError.message}`);
+      }
+
+      // Validate response structure
+      if (!data.label || typeof data.confidence !== 'number' || !Array.isArray(data.explanation)) {
+        throw new Error('Invalid response format: Missing label, confidence, or explanation');
+      }
+
+      labelSpan.textContent = data.label;
+      confidenceSpan.textContent = `${(data.confidence * 100).toFixed(2)}%`;
       
       // Generate sentiment heatmap
       heatmapDiv.innerHTML = '';
-      if (data.explanation && Array.isArray(data.explanation)) {
-        const values = data.explanation.map(([_, value]) => Math.abs(value));
-        const maxValue = Math.max(...values) || 1;
-        data.explanation.forEach(([word, value]) => {
-          const intensity = Math.abs(value) / maxValue; 
-          const red = Math.round(255 * intensity);
-          const green = Math.round(255 * (1 - intensity));
-          const span = document.createElement('span');
-          span.textContent = word + ' ';
-          span.style.backgroundColor = `rgb(${red}, ${green}, 0)`;
-          span.style.padding = '2px 4px';
-          span.style.margin = '2px';
-          span.style.borderRadius = '3px';
-          span.title = `Sentiment contribution: ${value.toFixed(4)}`;
-          heatmapDiv.appendChild(span);
-        });
-      } else {
-        heatmapDiv.textContent = 'No explanation provided';
-      }
+      data.explanation.forEach(([word, value]) => {
+        const intensity = Math.abs(value) / (Math.max(...data.explanation.map(([_, v]) => Math.abs(v))) || 1);
+        const red = Math.round(255 * intensity);
+        const green = Math.round(255 * (1 - intensity));
+        const span = document.createElement('span');
+        span.textContent = word + ' ';
+        span.style.backgroundColor = `rgb(${red}, ${green}, 0)`;
+        span.style.padding = '2px 4px';
+        span.style.margin = '2px';
+        span.style.borderRadius = '3px';
+        span.title = `Sentiment contribution: ${value.toFixed(4)}`;
+        heatmapDiv.appendChild(span);
+      });
 
       resultsDiv.classList.remove('hidden');
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to analyze review. Please try again.');
+      alert(`Failed to analyze review: ${error.message}. Check console for details.`);
     }
   });
 
