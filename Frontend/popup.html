@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fake Review Detector</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Fake Review Detector</h2>
+    <form id="reviewForm">
+      <label for="modelSelect">Select Model:</label>
+      <select id="modelSelect" name="model">
+        <option value="bert">BERT</option>
+        <option value="roberta">RoBERTa</option>
+      </select>
+      <label for="reviewText">Review Text:</label>
+      <textarea id="reviewText" rows="5" placeholder="Enter or paste review text here"></textarea>
+      <button type="submit" id="submitBtn">Analyze Review</button>
+    </form>
+    <div id="results" class="hidden">
+      <h3>Results</h3>
+      <p><strong>Label:</strong> <span id="label"></span></p>
+      <p><strong>Accuracy:</strong> <span id="accuracy"></span></p>
+      <p><strong>Explanation:</strong> <span id="explanation"></span></p>
+    </div>
+    <button id="cropBtn">Crop Screen for Text</button>
+    <button id="pageAnalyzeBtn">Analyze Page Reviews</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
