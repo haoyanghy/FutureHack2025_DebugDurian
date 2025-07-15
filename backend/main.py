@@ -1,8 +1,18 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from predict import predict_review, get_lime_explanation
 
 app = FastAPI()
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["chrome-extension://*"],  # Extension's origin
+    allow_credentials=True,
+    allow_methods=["POST", "OPTIONS"],  # Allow POST and OPTIONS (for preflight)
+    allow_headers=["Content-Type"],  # Allow Content-Type header
+)
 
 
 class ReviewInput(BaseModel):

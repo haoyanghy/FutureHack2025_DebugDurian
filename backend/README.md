@@ -9,3 +9,7 @@ To start the backend server:
    `cd backend` if you are not
 2. Run the server with this command
    `python main.py`
+3. The backend server shall run on localhost with port 8000 now
+
+API Documentation Available at:
+http://localhost:8000/docs
