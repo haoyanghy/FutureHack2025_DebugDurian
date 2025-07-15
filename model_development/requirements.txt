@@ -9,3 +9,4 @@ sentence-transfromers
 umap-learn
 fcmeans
 scipy
+transformers[torch]
