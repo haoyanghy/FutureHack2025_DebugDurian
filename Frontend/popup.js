@@ -1,12 +1,11 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('reviewForm');
-  const cropBtn = document.getElementById('cropBtn');
-  const pageAnalyzeBtn = document.getElementById('pageAnalyzeBtn');
-  const reviewText = document.getElementById('reviewText');
+document.addEventListener('DOMContentLoaded', function() {
+  // DOM elements
+  const reviewForm = document.getElementById('reviewForm');
   const resultsDiv = document.getElementById('results');
   const labelSpan = document.getElementById('label');
   const confidenceSpan = document.getElementById('confidence');
   const heatmapDiv = document.getElementById('heatmap');
+<<<<<<< HEAD
   const scrape = document.getElementById('scrapeBtn');
   const showLoading = (text = 'Loading...') => {
     document.getElementById('loadingText').textContent = text;
@@ -21,44 +20,59 @@ document.addEventListener('DOMContentLoaded', () => {
   const updateProgressBar = (percent) => {
     document.getElementById('progressFill').style.width = `${percent}%`;
   };
+=======
+  const submitBtn = document.getElementById('submitBtn');
+  const cropBtn = document.getElementById('cropBtn');
+  const pageAnalyzeBtn = document.getElementById('pageAnalyzeBtn');
+
+  // API configuration
+  const API_URL = 'http://localhost:8000/durian/review';
+>>>>>>> 342ed0f7f9e2fad6aec18cde908866752d08fe6e
 
   // Handle form submission
-  form.addEventListener('submit', async (e) => {
+  reviewForm.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const text = reviewText.value.trim();
-
-    if (!text) {
+    
+    const reviewText = document.getElementById('reviewText').value.trim();
+    const modelSelect = document.getElementById('modelSelect').value;
+    
+    if (!reviewText) {
       alert('Please enter review text');
       return;
     }
 
+<<<<<<< HEAD
     showLoading('Analyzing review...');
     updateProgressBar(30);
+=======
+    // Set loading state
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Analyzing...';
+>>>>>>> 342ed0f7f9e2fad6aec18cde908866752d08fe6e
 
     try {
-      const response = await fetch('http://localhost:8000/durian/review', {
+      // Make API request
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({
+          text: reviewText,
+          model: modelSelect
+        })
       });
 
       updateProgressBar(60);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to analyze review');
       }
 
-      let data;
-      try {
-        data = await response.json();
-        console.log('Response data:', data);
-      } catch (jsonError) {
-        throw new Error(`Failed to parse JSON response: ${jsonError.message}`);
-      }
+      const data = await response.json();
 
+<<<<<<< HEAD
       // Validate response structure
       if (!data.label || typeof data.confidence !== 'number' || !Array.isArray(data.explanation)) {
         throw new Error('Invalid response format: Missing label, confidence, or explanation');
@@ -93,34 +107,62 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Error:', error);
       alert(`Failed to analyze review: ${error.message}. Check console for details.`);
       hideLoading();
+=======
+      // Display results
+      displayResults(data);
+      
+    } catch (error) {
+      console.error('API Error:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      // Reset button state
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Analyze Review';
+>>>>>>> 342ed0f7f9e2fad6aec18cde908866752d08fe6e
     }
   });
 
-  // Handle screen cropping
-  cropBtn.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'captureScreen' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error(chrome.runtime.lastError);
-        alert('Failed to initiate screen capture');
-        return;
-      }
+  // Display results function
+  function displayResults(data) {
+    labelSpan.textContent = data.label;
+    confidenceSpan.textContent = `${(data.confidence * 100).toFixed(2)}%`;
+    
+    // Clear previous heatmap
+    heatmapDiv.innerHTML = '';
+    
+    // Create heatmap visualization (simplified example)
+    if (data.explanation && Array.isArray(data.explanation)) {
+      data.explanation.forEach(item => {
+        const wordSpan = document.createElement('span');
+        const score = Math.abs(item.score); // Normalize score
+        const color = score > 0.5 ? 
+          `rgba(255, 0, 0, ${score})` : // Red for high impact
+          `rgba(0, 0, 255, ${score})`;  // Blue for low impact
+        
+        wordSpan.textContent = item.word + ' ';
+        wordSpan.style.backgroundColor = color;
+        wordSpan.style.padding = '2px';
+        wordSpan.style.margin = '1px';
+        wordSpan.style.borderRadius = '3px';
+        
+        heatmapDiv.appendChild(wordSpan);
+      });
+    }
+    
+    resultsDiv.classList.remove('hidden');
+  }
 
-      if (response && response.dataUrl) {
-        // Placeholder for OCR processing
-        alert('Screen captured! OCR processing not implemented in this example.');
-        reviewText.value = 'Sample extracted text from cropped image';
-      }
+  // Crop button functionality
+  cropBtn.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {action: "activateCropMode"});
     });
   });
 
-  // Handle page analysis (placeholder)
-  pageAnalyzeBtn.addEventListener('click', () => {
-    alert('Page analysis functionality to be implemented later.');
-    chrome.scripting.executeScript({
-      target: { tabId: chrome.tabs.TAB_ID_NONE },
-      function: () => {
-        console.log('Page analysis triggered');
-      }
+  // Page analyze button functionality
+  pageAnalyzeBtn.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {action: "analyzePageReviews"});
     });
   });
 
@@ -233,4 +275,5 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(scrapeReviews, 7000);
     });
   });
+});
 });
