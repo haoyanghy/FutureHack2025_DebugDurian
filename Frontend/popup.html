@@ -9,26 +9,40 @@
 <body>
   <div class="container">
     <h2>Fake Review Detector</h2>
+    
     <form id="reviewForm">
       <label for="modelSelect">Select Model:</label>
       <select id="modelSelect" name="model">
         <option value="bert">BERT</option>
         <option value="roberta">RoBERTa</option>
       </select>
+      
       <label for="reviewText">Review Text:</label>
-      <textarea id="reviewText" rows="5" placeholder="Enter or paste review text here"></textarea>
-      <button type="submit" id="submitBtn">Analyze Review</button>
+      <textarea id="reviewText" rows="5" placeholder="Enter or paste review text here" required></textarea>
+      
+      <button type="submit" id="submitBtn" class="primary-btn">Analyze Review</button>
     </form>
-    <div id="results" class="hidden">
+    
+    <div id="results" class="hidden results-container">
       <h3>Results</h3>
-      <p><strong>Label:</strong> <span id="label"></span></p>
-      <p><strong>Confidence:</strong> <span id="confidence"></span></p>
-      <p><strong>Explanation (Sentiment Heatmap):</strong></p>
-      <div id="heatmap"></div>
+      <div class="result-item">
+        <strong>Label:</strong> <span id="label"></span>
+      </div>
+      <div class="result-item">
+        <strong>Confidence:</strong> <span id="confidence"></span>
+      </div>
+      <div class="result-item">
+        <strong>Explanation:</strong>
+        <div id="heatmap" class="heatmap-container"></div>
+      </div>
     </div>
-    <button id="cropBtn">Crop Screen for Text</button>
-    <button id="pageAnalyzeBtn">Analyze Page Reviews</button>
+    
+    <div class="action-buttons">
+      <button id="cropBtn" class="secondary-btn">Crop Screen for Text</button>
+      <button id="pageAnalyzeBtn" class="secondary-btn">Analyze Page Reviews</button>
+    </div>
   </div>
+  
   <script src="popup.js"></script>
 </body>
 </html>
