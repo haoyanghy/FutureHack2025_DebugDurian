@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const labelSpan = document.getElementById('label');
   const confidenceSpan = document.getElementById('confidence');
   const heatmapDiv = document.getElementById('heatmap');
-<<<<<<< HEAD
   const scrape = document.getElementById('scrapeBtn');
   const showLoading = (text = 'Loading...') => {
     document.getElementById('loadingText').textContent = text;
@@ -20,14 +19,12 @@ document.addEventListener('DOMContentLoaded', function() {
   const updateProgressBar = (percent) => {
     document.getElementById('progressFill').style.width = `${percent}%`;
   };
-=======
   const submitBtn = document.getElementById('submitBtn');
   const cropBtn = document.getElementById('cropBtn');
   const pageAnalyzeBtn = document.getElementById('pageAnalyzeBtn');
 
   // API configuration
   const API_URL = 'http://localhost:8000/durian/review';
->>>>>>> 342ed0f7f9e2fad6aec18cde908866752d08fe6e
 
   // Handle form submission
   reviewForm.addEventListener('submit', async function(e) {
@@ -41,14 +38,11 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-<<<<<<< HEAD
     showLoading('Analyzing review...');
     updateProgressBar(30);
-=======
     // Set loading state
     submitBtn.disabled = true;
     submitBtn.textContent = 'Analyzing...';
->>>>>>> 342ed0f7f9e2fad6aec18cde908866752d08fe6e
 
     try {
       // Make API request
@@ -71,8 +65,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       const data = await response.json();
+      displayResults(data);
 
-<<<<<<< HEAD
       // Validate response structure
       if (!data.label || typeof data.confidence !== 'number' || !Array.isArray(data.explanation)) {
         throw new Error('Invalid response format: Missing label, confidence, or explanation');
@@ -104,21 +98,13 @@ document.addEventListener('DOMContentLoaded', function() {
       updateProgressBar(100);
       setTimeout(hideLoading, 500);
     } catch (error) {
-      console.error('Error:', error);
-      alert(`Failed to analyze review: ${error.message}. Check console for details.`);
-      hideLoading();
-=======
-      // Display results
-      displayResults(data);
-      
-    } catch (error) {
       console.error('API Error:', error);
       alert(`Error: ${error.message}`);
+      hideLoading();
     } finally {
       // Reset button state
       submitBtn.disabled = false;
       submitBtn.textContent = 'Analyze Review';
->>>>>>> 342ed0f7f9e2fad6aec18cde908866752d08fe6e
     }
   });
 
