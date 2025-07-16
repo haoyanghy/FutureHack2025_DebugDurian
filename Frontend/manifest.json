@@ -2,23 +2,47 @@
   "manifest_version": 3,
   "name": "Fake Review Detector",
   "version": "1.0",
-  "description": "Detects fake reviews using BERT or RoBERTa models with screen cropping and text analysis.",
+  "description": "Detects fake reviews using AI models with screen cropping and text analysis for Shopee & Amazon",
   "permissions": [
     "activeTab",
     "scripting",
-    "desktopCapture"
+    "desktopCapture",
+    "tabs",
+    "storage",
+    "clipboardWrite"  
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icons/durian.png"
+    "default_icon": {
+      "32": "icons/durian.png"
+    }
   },
-   "host_permissions": [
-    "http://localhost:8000/*"
+  "host_permissions": [
+    "http://localhost:8000/*",          
+    "*://*.amazon.com/*",      
+    "*://*.amazon.com.my/*",   
+    "*://*.amazon.sg/*"        
   ],
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.amazon.com.my/*",
+        "*://*.amazon.sg/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
   "icons": {
     "32": "icons/durian.png"
-  }
+  },
+  "web_accessible_resources": [{
+    "resources": ["icons/*"],
+    "matches": ["<all_urls>"]
+  }]
 }

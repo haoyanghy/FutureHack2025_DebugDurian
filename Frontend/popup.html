@@ -26,8 +26,22 @@
       <p><strong>Explanation (Sentiment Heatmap):</strong></p>
       <div id="heatmap"></div>
     </div>
+    <hr>
+    <input type="text" id="amazonUrl" placeholder="Paste Amazon product URL here" style="width: 100%; margin-bottom: 5px;" />
+    <button id="scrapeBtn">Scrape Reviews</button>
     <button id="cropBtn">Crop Screen for Text</button>
     <button id="pageAnalyzeBtn">Analyze Page Reviews</button>
+    <div class="scrapedText" style="display: none;">
+      <label for="scrapedReviews">Scraped Reviews:</label>
+      <textarea id="scrapedReviews" rows="8" readonly placeholder="Scraped reviews will appear here..."></textarea>
+    </div>
+  </div>
+  <div id="loadingContainer" class="hidden" style="text-align:center; margin-top:10px;">
+    <div class="spinner" style="margin:auto;"></div>
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <p id="loadingText">Loading...</p>
   </div>
   <script src="popup.js"></script>
 </body>
