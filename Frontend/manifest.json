@@ -9,7 +9,7 @@
     "desktopCapture",
     "tabs",
     "storage",
-    "clipboardWrite"  
+    "clipboardWrite"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -18,10 +18,10 @@
     }
   },
   "host_permissions": [
-    "http://localhost:8000/*",          
-    "*://*.amazon.com/*",      
-    "*://*.amazon.com.my/*",   
-    "*://*.amazon.sg/*"        
+    "http://localhost:8000/*",
+    "https://*.amazon.com/*",
+    "https://*.shopee.com.my/*",
+    "https://*.lazada.com.my/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -29,9 +29,9 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.amazon.com/*",
-        "*://*.amazon.com.my/*",
-        "*://*.amazon.sg/*"
+        "https://*.amazon.com/*",
+        "https://*.shopee.com.my/*",
+        "https://*.lazada.com.my/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle",
