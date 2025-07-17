@@ -5,7 +5,16 @@ document.addEventListener('DOMContentLoaded', function() {
   const labelSpan = document.getElementById('label');
   const confidenceSpan = document.getElementById('confidence');
   const heatmapDiv = document.getElementById('heatmap');
-  const scrape = document.getElementById('scrapeBtn');
+  const cropBtn = document.getElementById('cropBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  const platformSelect = document.getElementById('platform')
+  const scrapeBtn = document.getElementById('scrapeBtn');
+  const urlInputField = document.getElementById('urlInput');
+
+  // API configuration
+  const API_URL = 'http://localhost:8000/durian/review';
+
+  //--------------------Loading Session------------------
   const showLoading = (text = 'Loading...') => {
     document.getElementById('loadingText').textContent = text;
     document.getElementById('loadingContainer').classList.remove('hidden');
@@ -19,12 +28,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const updateProgressBar = (percent) => {
     document.getElementById('progressFill').style.width = `${percent}%`;
   };
-  const submitBtn = document.getElementById('submitBtn');
-  const cropBtn = document.getElementById('cropBtn');
-  const pageAnalyzeBtn = document.getElementById('pageAnalyzeBtn');
 
-  // API configuration
-  const API_URL = 'http://localhost:8000/durian/review';
+  //------------------Function------------------------------
 
   // Handle form submission
   reviewForm.addEventListener('submit', async function(e) {
@@ -145,23 +150,36 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Page analyze button functionality
-  pageAnalyzeBtn.addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: "analyzePageReviews"});
-    });
+  // Initialize the platform selection handler
+  platformSelect.addEventListener('change', function() {
+      const platformSelected = this.value !== "";
+      scrapeBtn.disabled = !platformSelected;
+      const urlInput = document.getElementById('urlInput');
+      if (platformSelected) {
+          urlInput.classList.remove('hidden');
+      } else {
+          urlInput.classList.add('hidden');
+      }
+      document.getElementById('scrapedText').classList.add('hidden');
+      document.getElementById('scrapedReviews').value = '';
   });
 
-  // Handle Scrape from Amazon
-  scrape.addEventListener('click', async () => {
-    const productUrl = document.getElementById('amazonUrl').value.trim();
-    
-    if (!productUrl || !productUrl.includes("amazon.")) {
-      alert("Please enter a valid Amazon product URL (e.g., https://www.amazon.com/dp/B0XXXXXXX)");
+  scrapeBtn.addEventListener('click', async () => {
+    const platform = document.getElementById('platform').value;
+    const productUrl = document.getElementById('url').value.trim();
+
+    const platformDomains = {
+      amazon: "amazon.",
+      shopee: "shopee.",
+      lazada: "lazada."
+    }
+
+    if (!productUrl || !productUrl.includes(platformDomains[platform])) {
+      alert(`Please enter a valid ${platform} product URL`);
       return;
     }
 
-    showLoading('Scraping Amazon reviews...');
+    showLoading(`Scraping ${platform.charAt(0).toUpperCase() + platform.slice(1)} reviews...`);
     updateProgressBar(10);
 
     chrome.tabs.create({ url: productUrl, active: false }, (tab) => {
@@ -175,68 +193,85 @@ document.addEventListener('DOMContentLoaded', function() {
 
         chrome.scripting.executeScript({
           target: { tabId },
-          func: () => {
-            // Check for CAPTCHA first
+          func: (platform) => {
             if (document.querySelector('#captchacharacters')) {
               return { status: 'captcha_blocked', reviews: [] };
             }
 
-            // Scroll to reviews section
-            const reviewSection = document.getElementById('cm_cr-review_list') || 
-                                document.querySelector('[data-hook="review-list"]');
-            if (reviewSection) {
-              reviewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            let reviews = [];
+
+            if (platform === 'amazon') {
+              const containers = document.querySelectorAll('[data-hook="review"]');
+              containers.forEach(container => {
+                const textEl = container.querySelector('[data-hook="review-body"] span') || container.querySelector('.review-text-content');
+                if (textEl) reviews.push(textEl.textContent.trim());
+              });
+            } else if (platform === 'shopee') {
+                setTimeout(() => {
+                  document.querySelectorAll('.shopee-product-rating__main, .YNedDV').forEach(el => {
+                    const text = el.textContent.trim();
+                    if (text) reviews.push(text);
+                  });
+                  console.log(reviews); 
+                }, 3000);
+            } else if (platform === 'lazada') {
+              return new Promise((resolve) => {
+                window.scrollTo(0, document.body.scrollHeight);
+                setTimeout(() => {
+                  const selectorsToTry = [
+                    '.item-content-main-content-reviews-item span',
+                    '.lzd-review-content span',
+                    '[class*="review"] span',
+                    '.next-card-body p'
+                  ];
+                  for (const selector of selectorsToTry) {
+                    const elements = document.querySelectorAll(selector);
+                    if (elements.length > 0) {
+                      elements.forEach(el => {
+                        const text = el.textContent.trim();
+                        if (text.length > 10) reviews.push(text);
+                      });
+                      break;
+                    }
+                  }
+                  resolve({
+                    status: reviews.length ? 'success' : 'no_reviews',
+                    reviews: reviews
+                  });
+                }, 3000);
+              });
             }
 
-            // Get all review containers - try multiple selectors
-            let reviewContainers = document.querySelectorAll('[data-hook="review"]');
-            if (reviewContainers.length === 0) {
-              reviewContainers = document.querySelectorAll('.review');
-            }
-            if (reviewContainers.length === 0) {
-              reviewContainers = document.querySelectorAll('.a-section.review');
-            }
-
-            const reviews = [];
-            
-            reviewContainers.forEach(container => {
-              const reviewTextElement = container.querySelector('[data-hook="review-body"] span') || 
-                          container.querySelector('.review-text-content');
-              if (reviewTextElement) {
-                reviews.push(reviewTextElement.textContent.trim());
-              }
-            });
-            return { 
-              status: reviews.length ? 'success' : 'no_reviews', 
+            return {
+              status: reviews.length ? 'success' : 'no_reviews',
               reviews,
-              containerCount: reviewContainers.length
+              containerCount: reviews.length
             };
-          }
+          },
+          args: [platform]
         }, (results) => {
           const result = results?.[0]?.result || { status: 'error', reviews: [] };
 
           if (result.status === 'success' && result.reviews.length > 0) {
             updateProgressBar(90);
-            const combined = result.reviews.join('\n\n---\n\n');
-            
+            const combined = result.reviews.join(' | ');  
+
             chrome.storage.local.set({ extractedText: combined }, () => {
               document.getElementById('scrapedReviews').value = combined;
-
-              document.querySelector('.scrapedText').style.display = 'block';
+              document.querySelector('#scrapedText').style.display = 'block';
 
               chrome.tabs.remove(tabId);
               updateProgressBar(100);
               setTimeout(() => {
                 hideLoading();
-                alert(`Successfully scraped ${result.reviews.length} Amazon reviews!`);
+                alert(`Successfully scraped ${result.reviews.length} ${platform} reviews!`);
               }, 500);
             });
-
           }
           else if (result.status === 'captcha_blocked') {
             chrome.tabs.remove(tabId);
             hideLoading();
-            alert("Amazon is showing CAPTCHA. Please solve it manually and try again.");
+            alert(`${platform} is showing CAPTCHA. Please solve it manually and try again.`);
           }
           else if (attempts < maxAttempts) {
             setTimeout(scrapeReviews, 3000);
@@ -244,15 +279,9 @@ document.addEventListener('DOMContentLoaded', function() {
           else {
             chrome.tabs.remove(tabId);
             hideLoading();
-            
-            let message = "Amazon Review Scraping Failed\n\n";
-            message += "Possible reasons:\n";
-            message += "1. Not on a product page\n";
-            message += "2. Amazon blocked the request\n";
-            message += "3. No reviews available\n";
-            message += "4. Page structure changed\n\n";
-            message += `Technical details:\nStatus: ${result.status}\nContainers found: ${result.containerCount || 0}`;
-            
+            let message = `${platform.charAt(0).toUpperCase() + platform.slice(1)} Review Scraping Failed\n\n`;
+            message += `Technical details:\nStatus: ${result.status}\nReviews found: ${result.containerCount || 0}`;
+
             alert(message);
           }
         });

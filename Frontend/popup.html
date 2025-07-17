@@ -36,18 +36,28 @@
         <div id="heatmap" class="heatmap-container"></div>
       </div>
     </div>
-    
     <div class="action-buttons">
       <button id="cropBtn" class="secondary-btn">Crop Screen for Text</button>
-      <button id="pageAnalyzeBtn" class="secondary-btn">Analyze Page Reviews</button>
+    </div>
+    <div class="platform">
+      <label for="platform">Choose Platform:</label>
+      <select id="platform">
+        <option value="" selected disabled>Choose a platform</option>
+        <option value="amazon">Amazon</option>
+        <option value="shopee">Shopee</option>
+        <option value="lazada">Lazada</option>
+      </select>
+      <div id="urlInput" class="hidden">
+        <label for="url">Product URL:</label>
+        <input type="text" id="url" placeholder="Paste product URL here" />
+      </div>
+      <button id="scrapeBtn" class="secondary-btn">Scrape Reviews</button>
+      <div id="scrapedText" class="hidden">
+        <label for="scrapedReviews">Scraped Reviews:</label>
+        <textarea id="scrapedReviews" rows="8" readonly placeholder="Scraped reviews will appear here..."></textarea>
+      </div>
     </div>
     <hr>
-    <input type="text" id="amazonUrl" placeholder="Paste Amazon product URL here" style="width: 100%; margin-bottom: 5px;" />
-    <button id="scrapeBtn">Scrape Reviews</button>
-    <div class="scrapedText" style="display: none;">
-      <label for="scrapedReviews">Scraped Reviews:</label>
-      <textarea id="scrapedReviews" rows="8" readonly placeholder="Scraped reviews will appear here..."></textarea>
-    </div>
   </div>
   <div id="loadingContainer" class="hidden" style="text-align:center; margin-top:10px;">
     <div class="spinner" style="margin:auto;"></div>
