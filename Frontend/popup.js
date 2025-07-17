@@ -2,12 +2,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // DOM elements
   const reviewForm = document.getElementById('reviewForm');
   const resultsDiv = document.getElementById('results');
-  const labelSpan = document.getElementById('label');
-  const confidenceSpan = document.getElementById('confidence');
-  const heatmapDiv = document.getElementById('heatmap');
+  const reviewResults = document.getElementById('reviewResults');
   const cropBtn = document.getElementById('cropBtn');
   const submitBtn = document.getElementById('submitBtn');
-  const platformSelect = document.getElementById('platform')
+  const platformSelect = document.getElementById('platform');
   const scrapeBtn = document.getElementById('scrapeBtn');
   const urlInputField = document.getElementById('urlInput');
 
@@ -72,35 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const data = await response.json();
       displayResults(data);
 
-      // Validate response structure
-      if (!data.label || typeof data.confidence !== 'number' || !Array.isArray(data.explanation)) {
-        throw new Error('Invalid response format: Missing label, confidence, or explanation');
-      }
-
       updateProgressBar(90);
-
-      labelSpan.textContent = data.label;
-      confidenceSpan.textContent = `${(data.confidence * 100).toFixed(2)}%`;
-      
-      // Generate sentiment heatmap
-      heatmapDiv.innerHTML = '';
-      const maxVal = Math.max(...data.explanation.map(([_, v]) => Math.abs(v))) || 1;
-      data.explanation.forEach(([word, value]) => {
-        const intensity = Math.abs(value) / (Math.max(...data.explanation.map(([_, v]) => Math.abs(v))) || 1);
-        const red = Math.round(255 * intensity);
-        const green = Math.round(255 * (1 - intensity));
-        const span = document.createElement('span');
-        span.textContent = word + ' ';
-        span.style.backgroundColor = `rgb(${red}, ${green}, 0)`;
-        span.style.padding = '2px 4px';
-        span.style.margin = '2px';
-        span.style.borderRadius = '3px';
-        span.title = `Sentiment contribution: ${value.toFixed(4)}`;
-        heatmapDiv.appendChild(span);
-      });
-
-      resultsDiv.classList.remove('hidden');
-      updateProgressBar(100);
       setTimeout(hideLoading, 500);
     } catch (error) {
       console.error('API Error:', error);
@@ -115,30 +85,61 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Display results function
   function displayResults(data) {
-    labelSpan.textContent = data.label;
-    confidenceSpan.textContent = `${(data.confidence * 100).toFixed(2)}%`;
+    reviewResults.innerHTML = '';
     
-    // Clear previous heatmap
-    heatmapDiv.innerHTML = '';
-    
-    // Create heatmap visualization (simplified example)
-    if (data.explanation && Array.isArray(data.explanation)) {
-      data.explanation.forEach(item => {
-        const wordSpan = document.createElement('span');
-        const score = Math.abs(item.score); // Normalize score
-        const color = score > 0.5 ? 
-          `rgba(255, 0, 0, ${score})` : // Red for high impact
-          `rgba(0, 0, 255, ${score})`;  // Blue for low impact
-        
-        wordSpan.textContent = item.word + ' ';
-        wordSpan.style.backgroundColor = color;
-        wordSpan.style.padding = '2px';
-        wordSpan.style.margin = '1px';
-        wordSpan.style.borderRadius = '3px';
-        
-        heatmapDiv.appendChild(wordSpan);
-      });
-    }
+    data.forEach(result => {
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'result-item';
+      
+      // Review text
+      const reviewP = document.createElement('p');
+      reviewP.innerHTML = `<strong>Review:</strong> ${result.review}`;
+      resultDiv.appendChild(reviewP);
+      
+      // Label
+      const labelP = document.createElement('p');
+      labelP.innerHTML = `<strong>Label:</strong> ${result.label}`;
+      resultDiv.appendChild(labelP);
+      
+      // Confidence
+      const confidenceP = document.createElement('p');
+      confidenceP.innerHTML = `<strong>Confidence:</strong> ${(result.confidence * 100).toFixed(2)}%`;
+      resultDiv.appendChild(confidenceP);
+      
+      // Category (for fake reviews)
+      if (result.label === 'fake' && result.cluster_type) {
+        const categoryP = document.createElement('p');
+        categoryP.innerHTML = `<strong>Category:</strong> ${result.cluster_type?? 'Null'}`;
+        resultDiv.appendChild(categoryP);
+      }
+      
+      // Explanation (heatmap)
+      const explanationDiv = document.createElement('div');
+      explanationDiv.innerHTML = '<strong>Explanation:</strong>';
+      const heatmapDiv = document.createElement('div');
+      heatmapDiv.className = 'heatmap-container';
+      
+      if (result.explanation && Array.isArray(result.explanation)) {
+        const maxVal = Math.max(...result.explanation.map(([_, v]) => Math.abs(v))) || 1;
+        result.explanation.forEach(([word, value]) => {
+          const intensity = Math.abs(value) / maxVal;
+          const red = Math.round(255 * intensity);
+          const green = Math.round(255 * (1 - intensity));
+          const span = document.createElement('span');
+          span.textContent = word + ' ';
+          span.style.backgroundColor = `rgb(${red}, ${green}, 0)`;
+          span.style.padding = '2px 4px';
+          span.style.margin = '2px';
+          span.style.borderRadius = '3px';
+          span.title = `Sentiment contribution: ${value.toFixed(4)}`;
+          heatmapDiv.appendChild(span);
+        });
+      }
+      
+      explanationDiv.appendChild(heatmapDiv);
+      resultDiv.appendChild(explanationDiv);
+      reviewResults.appendChild(resultDiv);
+    });
     
     resultsDiv.classList.remove('hidden');
   }
@@ -207,13 +208,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (textEl) reviews.push(textEl.textContent.trim());
               });
             } else if (platform === 'shopee') {
-                setTimeout(() => {
-                  document.querySelectorAll('.shopee-product-rating__main, .YNedDV').forEach(el => {
-                    const text = el.textContent.trim();
-                    if (text) reviews.push(text);
-                  });
-                  console.log(reviews); 
-                }, 3000);
+              setTimeout(() => {
+                document.querySelectorAll('.shopee-product-rating__main, .YNedDV').forEach(el => {
+                  const text = el.textContent.trim();
+                  if (text) reviews.push(text);
+                });
+                console.log(reviews); 
+              }, 3000);
             } else if (platform === 'lazada') {
               return new Promise((resolve) => {
                 window.scrollTo(0, document.body.scrollHeight);
@@ -271,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {
           else if (result.status === 'captcha_blocked') {
             chrome.tabs.remove(tabId);
             hideLoading();
-            alert(`${platform} is showing CAPTCHA. Please solve it manually and try again.`);
+            alert(`${platform.charAt(0).toUpperCase() + platform.slice(1)} is showing CAPTCHA. Please solve it manually and try again.`);
           }
           else if (attempts < maxAttempts) {
             setTimeout(scrapeReviews, 3000);
