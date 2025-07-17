@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Fake Review Detector",
   "version": "1.0",
-  "description": "Detects fake reviews using AI models with screen cropping and text analysis for Shopee & Amazon",
+  "description": "Detects fake reviews using AI models with screen cropping and text analysis for E-commerce platforms like Amazon, Shopee, Lazada and more.",
   "permissions": [
     "activeTab",
     "scripting",
