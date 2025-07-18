@@ -14,7 +14,7 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "32": "icons/durian.png"
+      "64": "icons/durian.png"
     }
   },
   "host_permissions": [
@@ -39,7 +39,7 @@
     }
   ],
   "icons": {
-    "32": "icons/durian.png"
+    "64": "icons/durian.png"
   },
   "web_accessible_resources": [{
     "resources": ["icons/*"],

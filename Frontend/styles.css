@@ -166,11 +166,55 @@ select, textarea, input {
 }
 
 .results-container {
-  margin-top: 20px;
-  padding: 15px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 14px;
+  margin: 10px 0;
+  padding: 20px;
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  border: 1px solid #c8e6c9;
+}
+
+.results-container h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.result-item {
+  padding: 10px 0;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.heatmap-container {
+  position: relative;
+  margin-top: 10px;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.heatmap-container:hover::before {
+  content: "Redder words indicate a higher likelihood of a fake review; greener words suggest a genuine review.";
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 200px;
+  text-align: center;
+  z-index: 1000;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 .loading-container {
