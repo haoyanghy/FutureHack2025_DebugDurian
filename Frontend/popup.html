@@ -8,59 +8,86 @@
 </head>
 <body>
   <div class="container">
-    <h2>Fake Review Detector</h2>
-    
+    <div class="title-container">
+      <img src="icons/durian.png" alt="Logo" class="logo">
+      <h2>Fake Review Detector</h2>
+    </div>
     <form id="reviewForm">
-      <label for="modelSelect">Select Model:</label>
-      <select id="modelSelect" name="model">
-        <option value="bert">BERT</option>
-        <option value="roberta">RoBERTa</option>
-        <option value="electra">ELECTRA</option>
-      </select>
-      
-      <label for="reviewText">Review Text:</label>
-      <textarea id="reviewText" rows="5" placeholder="Enter or paste review text here" required></textarea>
-      
-      <button type="submit" id="submitBtn" class="primary-btn">Analyze Review</button>
+      <div class="form-section">
+        <div class="form-group">
+          <label for="modelSelect">Select Model:</label>
+          <select id="modelSelect" name="model" required>
+            <option value="" disabled selected>Select a model</option>
+            <option value="bert">BERT</option>
+            <option value="roberta">RoBERTa</option>
+            <option value="electra">ELECTRA</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-methods">
+        <div class="form-section">
+          <div class="form-group">
+            <label for="reviewText">Enter Review Text:</label>
+            <textarea id="reviewText" rows="5" placeholder="Paste review text here"></textarea>
+          </div>
+        </div>
+        <div class="or-divider">
+          <span>OR</span>
+        </div>
+        <div class="form-section">
+          <button type="button" id="capture" class="method-btn">
+            <span class="icon">📷</span>
+            <span>Capture & Crop from Screen</span>
+          </button>
+          <div id="screenshotContainer" class="empty"></div>
+          <button id="clearCapture" class="hidden small-btn">Clear</button>
+          <canvas id="overlayCanvas"></canvas>
+        </div>
+        <div class="or-divider">
+          <span>OR</span>
+        </div>
+        <div class="form-section">
+          <div class="form-group">
+            <label for="platform">Scrape from Platform:</label>
+            <select id="platform">
+              <option value="" selected disabled>Choose a platform</option>
+              <option value="amazon">Amazon</option>
+              <option value="shopee">Shopee</option>
+              <option value="lazada">Lazada</option>
+            </select>
+          </div>
+          <div id="urlInput" class="form-group hidden">
+            <label for="url">Product URL:</label>
+            <input type="text" id="url" placeholder="Paste product URL here">
+          </div>
+          <button type="button" id="scrapeBtn" class="method-btn hidden">
+            <span class="icon">🔍</span>
+            <span>Scrape Reviews</span>
+          </button>
+          <div id="scrapedText" class="form-group hidden">
+            <label>Scraped Reviews:</label>
+            <textarea id="scrapedReviews" rows="5" readonly></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="submit-section">
+        <button type="submit" id="submitBtn" class="primary-btn" disabled>
+          Analyze Review
+        </button>
+      </div>
     </form>
-    
-    <div id="results" class="hidden results-container">
+    <div id="results" class="results-container hidden">
       <h3>Results</h3>
       <div id="reviewResults"></div>
     </div>
-    <div class="action-buttons">
-      <button id="capture">Capture & Crop</button>
-      <div id="screenshotContainer"></div>
-      <canvas id="overlayCanvas"></canvas>
-    </div>
-    <div class="platform">
-      <label for="platform">Choose Platform:</label>
-      <select id="platform">
-        <option value="" selected disabled>Choose a platform</option>
-        <option value="amazon">Amazon</option>
-        <option value="shopee">Shopee</option>
-        <option value="lazada">Lazada</option>
-      </select>
-      <div id="urlInput" class="hidden">
-        <label for="url">Product URL:</label>
-        <input type="text" id="url" placeholder="Paste product URL here" />
+    <div id="loadingContainer" class="loading-container hidden">
+      <div class="spinner"></div>
+      <div class="progress-bar">
+        <div class="progress-bar-fill" id="progressFill"></div>
       </div>
-      <button id="scrapeBtn" class="secondary-btn">Scrape Reviews</button>
-      <div id="scrapedText" class="hidden">
-        <label for="scrapedReviews">Scraped Reviews:</label>
-        <textarea id="scrapedReviews" rows="8" readonly placeholder="Scraped reviews will appear here..."></textarea>
-      </div>
+      <p id="loadingText">Analyzing review...</p>
     </div>
-    <hr>
   </div>
-  <div id="loadingContainer" class="hidden" style="text-align:center; margin-top:10px;">
-    <div class="spinner" style="margin:auto;"></div>
-    <div class="progress-bar">
-      <div class="progress-bar-fill" id="progressFill"></div>
-    </div>
-    <p id="loadingText">Loading...</p>
-  </div>
-  
   <script src="popup.js"></script>
 </body>
 </html>

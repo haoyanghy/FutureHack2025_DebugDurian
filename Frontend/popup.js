@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const platformSelect = document.getElementById('platform');
   const scrapeBtn = document.getElementById('scrapeBtn');
   const captureButton = document.getElementById('capture');
-  const imgResultDiv = document.getElementById('results');
+  const imgResultDiv = document.getElementById('screenshotContainer');
+  const clearButton = document.getElementById('clearCapture');
 
   let lastCroppedImage = null;
 
@@ -146,7 +147,6 @@ document.addEventListener('DOMContentLoaded', function() {
     resultsDiv.classList.remove('hidden');
   }
 
-  // Display image function
   function displayImage(dataUrl) {
     imgResultDiv.innerHTML = "";
     const img = new Image();
@@ -154,27 +154,50 @@ document.addEventListener('DOMContentLoaded', function() {
     img.alt = "Cropped Screenshot";
     img.style.maxWidth = "100%";
     imgResultDiv.appendChild(img);
-    imgResultDiv.classList.remove('hidden');
+    imgResultDiv.classList.remove('empty');
+    imgResultDiv.classList.add('has-image');
+    clearButton.classList.remove('hidden');
+    clearButton.classList.add('visible');
   }
 
-  // Initialize with stored image
-  chrome.storage.local.get('lastCroppedImage', (result) => {
-    if (result.lastCroppedImage) {
-      displayImage(result.lastCroppedImage);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && clearButton.classList.contains('visible')) {
+      clearButton.click();
     }
   });
 
-  // Message listener (keep this as is)
+  clearButton.addEventListener("click", () => {
+    imgResultDiv.innerHTML = "";
+    imgResultDiv.classList.add('empty');
+    imgResultDiv.classList.remove('has-image');
+    clearButton.classList.remove('visible');
+    clearButton.classList.add('hidden');
+    chrome.storage.local.remove('lastCroppedImage');
+    document.getElementById('reviewText').placeholder = "Enter or paste review text here";
+  });
+
+  chrome.storage.local.get('lastCroppedImage', (result) => {
+    if (result.lastCroppedImage) {
+      displayImage(result.lastCroppedImage);
+    } else {
+      imgResultDiv.classList.add('empty');
+      clearButton.classList.remove('visible');
+      clearButton.classList.add('hidden');
+    }
+  });
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "croppedImage") {
       lastCroppedImage = request.dataUrl;
       displayImage(request.dataUrl);
       chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
     }
+    return true; 
   });
 
-  // Simplified capture button handler
   captureButton.addEventListener("click", () => {
+    imgResultDiv.classList.add('active'); 
+
     chrome.runtime.sendMessage({ action: "capture" }, (response) => {
       if (response.error) {
         alert(response.error);
@@ -199,7 +222,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
   
-  // Initialize the platform selection handler
   platformSelect.addEventListener('change', function() {
       const platformSelected = this.value !== "";
       scrapeBtn.disabled = !platformSelected;
