@@ -178,6 +178,8 @@ select, textarea, input {
 }
 
 #screenshotContainer {
+  max-height: 150px;
+  min-height: 80px;
   max-width: 100%;
   overflow: hidden;
   margin-top: 10px;
@@ -243,6 +245,17 @@ select, textarea, input {
   padding: 10px;
 }
 
+#overlayCanvas {
+  max-height: 150px;
+}
+
+.clear-btn-container {
+  display: flex;
+  justify-content: center; 
+  width: 100%;
+  margin-top: 5px;
+}
+
 .small-btn {
   padding: 6px 12px;
   background-color: #ffebee;
@@ -250,7 +263,6 @@ select, textarea, input {
   border: 1px solid #ef9a9a;
   border-radius: 4px;
   font-size: 12px;
-  margin-top: 5px;
   transition: all 0.2s;
 }
 
@@ -260,6 +272,10 @@ select, textarea, input {
 
 #clearCapture {
   display: none; 
+}
+
+#clearCapture.hidden {
+  display: none;
 }
 
 #clearCapture.visible {
