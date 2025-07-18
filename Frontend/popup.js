@@ -7,12 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const platformSelect = document.getElementById('platform');
   const scrapeBtn = document.getElementById('scrapeBtn');
   const captureButton = document.getElementById('capture');
-  const screenshotContainer = document.getElementById('screenshotContainer');
-  const overlayCanvas = document.getElementById('overlayCanvas');
-  const ctx = overlayCanvas.getContext('2d');
+  const imgResultDiv = document.getElementById('results');
 
-  let startX, startY, endX, endY, isDragging = false;
-  let screenshotImage;
+  let lastCroppedImage = null;
 
   // API configuration
   const API_URL = 'http://localhost:8000/durian/review';
@@ -149,19 +146,34 @@ document.addEventListener('DOMContentLoaded', function() {
     resultsDiv.classList.remove('hidden');
   }
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "croppedImage") {
-      const resultDiv = document.getElementById("results");
-      resultDiv.innerHTML = ""; 
-      const img = new Image();
-      img.src = request.dataUrl;
-      img.alt = "Cropped Screenshot";
-      img.style.maxWidth = "100%";
-      resultDiv.appendChild(img);
+  // Display image function
+  function displayImage(dataUrl) {
+    imgResultDiv.innerHTML = "";
+    const img = new Image();
+    img.src = dataUrl;
+    img.alt = "Cropped Screenshot";
+    img.style.maxWidth = "100%";
+    imgResultDiv.appendChild(img);
+    imgResultDiv.classList.remove('hidden');
+  }
+
+  // Initialize with stored image
+  chrome.storage.local.get('lastCroppedImage', (result) => {
+    if (result.lastCroppedImage) {
+      displayImage(result.lastCroppedImage);
     }
   });
 
-  // Crop button functionality
+  // Message listener (keep this as is)
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "croppedImage") {
+      lastCroppedImage = request.dataUrl;
+      displayImage(request.dataUrl);
+      chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
+    }
+  });
+
+  // Simplified capture button handler
   captureButton.addEventListener("click", () => {
     chrome.runtime.sendMessage({ action: "capture" }, (response) => {
       if (response.error) {
@@ -169,27 +181,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      // Inject crop.js into the current tab
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabId = tabs[0].id;
-
         chrome.scripting.executeScript(
           {
-            target: { tabId: tabId },
-            files: ["crop.js"],
+            target: { tabId },
+            files: ["crop.js"]
           },
           () => {
-            // After injecting, call startCropping with the image
             chrome.tabs.sendMessage(tabId, {
               action: "startCropping",
-              screenshot: response.screenshot,
+              screenshot: response.screenshot
             });
           }
         );
       });
     });
   });
-
+  
   // Initialize the platform selection handler
   platformSelect.addEventListener('change', function() {
       const platformSelected = this.value !== "";
@@ -331,17 +340,3 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
-
-function resizeImage(base64, maxWidth, callback) {
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.createElement("canvas");
-    const scale = maxWidth / img.width;
-    canvas.width = maxWidth;
-    canvas.height = img.height * scale;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    callback(canvas.toDataURL("image/png"));
-  };
-  img.src = base64;
-}

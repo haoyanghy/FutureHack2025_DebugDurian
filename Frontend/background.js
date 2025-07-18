@@ -11,7 +11,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ screenshot: dataUrl });
       });
     });
-
-    return true; // keep channel open for async response
+  } else if (request.action === "getLastCroppedImage") {
+    sendResponse({ dataUrl: lastCroppedImage });
   }
+  else if (request.action === "croppedImage") {
+    lastCroppedImage = request.dataUrl;
+  }
+  return true;
+
 });
