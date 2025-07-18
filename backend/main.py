@@ -38,16 +38,17 @@ async def classify_review(review: ReviewInput):
     results = []
     for text in reviews:
         if text.strip():
-            label, confidence = predict_review(text.strip(), review.model)
+            label, confidence, cluster_type = predict_review(text.strip(), review.model)
             explanation = get_lime_explanation(text.strip(), review.model)
-            results.append(
-                {
-                    "review": text,
-                    "label": label,
-                    "confidence": confidence,
-                    "explanation": explanation,
-                }
-            )
+            result = {
+                "review": text,
+                "label": label,
+                "confidence": confidence,
+                "explanation": explanation,
+            }
+            if label == "fake":
+                result["cluster_type"] = cluster_type
+            results.append(result)
 
     return results
 
