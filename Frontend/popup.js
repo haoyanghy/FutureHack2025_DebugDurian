@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
   async function scrapeReviews(platform, productUrl) {
     return new Promise((resolve, reject) => {
         showLoading(`Scraping ${platform.charAt(0).toUpperCase() + platform.slice(1)} reviews...`);
-        updateProgressBar(10, 'Opening product page...');
+        updateProgressBar(10);
 
         chrome.tabs.create({ url: productUrl, active: false }, (tab) => {
             const tabId = tab.id;
@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const scrapeReviews = () => {
                 attempts++;
-                updateProgressBar(10 + (attempts * 25), `Attempt ${attempts}/${maxAttempts}: Loading reviews...`);
+                updateProgressBar(10 + (attempts * 25));
 
                 chrome.scripting.executeScript({
                     target: { tabId },
@@ -294,16 +294,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     const result = results?.[0]?.result || { status: 'error', reviews: [] };
 
                     if (result.status === 'success' && result.reviews.length > 0) {
-                        updateProgressBar(90, `Processing ${result.reviews.length} reviews...`);
+                        updateProgressBar(90);
                         const combined = result.reviews.join(' | ');  
 
                         chrome.storage.local.set({ extractedText: combined }, () => {
-                            updateProgressBar(95, 'Storing results...');
+                            updateProgressBar(95);
                             document.getElementById('scrapedReviews').value = combined;
                             document.querySelector('#scrapedText').style.display = 'block';
 
                             chrome.tabs.remove(tabId);
-                            updateProgressBar(100, 'Scraping complete!');
+                            updateProgressBar(100);
                             setTimeout(() => {
                                 hideLoading();
                                 alert(`Successfully scraped ${result.reviews.length} ${platform} reviews!`);
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         reject(new Error(`${platform.charAt(0).toUpperCase() + platform.slice(1)} is showing CAPTCHA. Please solve it manually and try again.`));
                     }
                     else if (attempts < maxAttempts) {
-                        updateProgressBar(10 + (attempts * 25), `Retrying (${attempts}/${maxAttempts})...`);
+                        updateProgressBar(10 + (attempts * 25));
                         setTimeout(scrapeReviews, 3000);
                     }
                     else {
@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Wait for page to load before first attempt
             setTimeout(() => {
-                updateProgressBar(20, 'Page loaded, starting scrape...');
+                updateProgressBar(20);
                 scrapeReviews();
             }, 7000);
         });
