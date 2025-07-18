@@ -12,11 +12,7 @@ app = FastAPI()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "chrome-extension://*",
-        "http://localhost",
-        "http://127.0.0.1"
-        ],
+    allow_origins=["chrome-extension://*", "http://localhost", "http://127.0.0.1"],
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
@@ -26,9 +22,11 @@ class ReviewInput(BaseModel):
     text: str
     model: str
 
+
 class ImgInput(BaseModel):
     imgPath: str
     model: str
+
 
 @app.post("/durian/review")
 async def classify_review(review: ReviewInput):
@@ -49,18 +47,20 @@ async def classify_review(review: ReviewInput):
     results = []
     for text in reviews:
         if text.strip():
-            label, confidence = predict_review(text.strip(), review.model)
+            label, confidence, cluster_type = predict_review(text.strip(), review.model)
             explanation = get_lime_explanation(text.strip(), review.model)
             results.append(
                 {
                     "review": text,
                     "label": label,
                     "confidence": confidence,
+                    "cluster_type": cluster_type,
                     "explanation": explanation,
                 }
             )
 
     return results
+
 
 @app.post("/durian/extract")
 async def extract_review(img: ImgInput):
@@ -69,7 +69,7 @@ async def extract_review(img: ImgInput):
     if img.model not in ["bert", "roberta", "electra"]:
         raise HTTPException(
             status_code=400,
-            detail="Invalid model. Choose 'bert', 'roberta', or 'electra'"
+            detail="Invalid model. Choose 'bert', 'roberta', or 'electra'",
         )
     # Decode base64 and save to temp file
     try:
@@ -80,12 +80,15 @@ async def extract_review(img: ImgInput):
         texts = extract_word(temp_path)
         os.remove(temp_path)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image decode or OCR failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Image decode or OCR failed: {str(e)}"
+        )
 
     if not texts:
         raise HTTPException(status_code=400, detail="No reviews provided")
 
     return {"text": texts}
+
 
 if __name__ == "__main__":
     import uvicorn

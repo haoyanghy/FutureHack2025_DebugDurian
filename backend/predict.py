@@ -6,6 +6,7 @@ from transformers import (
 from lime.lime_text import LimeTextExplainer
 from typing import List, Dict, Any
 import numpy as np
+import re
 
 # Model configurations
 MODEL_CONFIGS = {
@@ -37,6 +38,7 @@ for model_type in MODEL_CONFIGS:
         class_names=MODEL_CONFIGS[model_type]["class_names"]
     )
 
+
 def predict_batch(texts: List[str], model_type: str) -> List[Dict[str, Any]]:
     results = []
     for text in texts:
@@ -45,24 +47,24 @@ def predict_batch(texts: List[str], model_type: str) -> List[Dict[str, Any]]:
             explanation = get_lime_explanation(text, model_type)
             cluster_type = None
             if label == "fake":
-                cluster_type = detect_cluster_type(text) 
-                results.append({
-                "review": text,
-                "label": label,
-                "confidence": confidence,
-                "cluster_type": cluster_type,
-                "explanation": explanation
-            })
+                cluster_type = detect_cluster_type(text)
+                results.append(
+                    {
+                        "review": text,
+                        "label": label,
+                        "confidence": confidence,
+                        "cluster_type": cluster_type,
+                        "explanation": explanation,
+                    }
+                )
         except Exception as e:
-            results.append({
-                "review": text,
-                "error": str(e)
-            }) 
+            results.append({"review": text, "error": str(e)})
     return results
 
-def predict_review(text: str, model_type: str) -> tuple[str, float]:
+
+def predict_review(text: str, model_type: str) -> tuple[str, float, str]:
     """
-    Predict if a review is fake or genuine and return the label and confidence.
+    Predict if a review is fake or genuine and return the label, confidence, and cluster type.
     """
     if model_type not in MODEL_CONFIGS:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -80,7 +82,8 @@ def predict_review(text: str, model_type: str) -> tuple[str, float]:
         probs = torch.softmax(outputs.logits, dim=1)
         confidence = probs[0][1].item()  # Probability for "fake" (class 1)
         label = "fake" if probs[0][1] > probs[0][0] else "genuine"
-    return label, confidence
+        cluster_type = detect_cluster_type(text) if label == "fake" else None
+    return label, confidence, cluster_type
 
 
 def get_lime_explanation(text: str, model_type: str) -> list:
@@ -108,14 +111,67 @@ def get_lime_explanation(text: str, model_type: str) -> list:
     )
     return explanation.as_list()
 
-# !!!!!!!!!!!!!!!!!!!!!!11
+
 def detect_cluster_type(text: str) -> str:
-    text_lower = text.lower()
-    if any(word in text_lower for word in ["excellent", "amazing", "perfect"]):
-        return "overly_positive"
-    elif any(word in text_lower for word in ["worst", "terrible", "awful"]):
-        return "overly_negative"
-    elif len(text.split()) < 10:
-        return "too_short"
-    else:
-        return "generic_fake"
+    """
+    Classify fake reviews into categories: spam, overly_positive, overly_negative, too_short, or generic_fake.
+    """
+    text_lower = text.lower().strip()
+    words = text_lower.split()
+
+    spam_indicators = [
+        r"http[s]?://",  # URLs
+        r"\.{2,}",
+        r"!{2,}",
+        r"\?{2,}",  # Excessive punctuation
+        r"\b(buy now|discount|free|click here|visit|deal|offer)\b",  # Promotional phrases
+    ]
+    if any(re.search(pattern, text_lower) for pattern in spam_indicators):
+        return "Spam"
+
+    word_counts = {}
+    for word in words:
+        word_counts[word] = word_counts.get(word, 0) + 1
+    if any(count >= 3 for count in word_counts.values()) and len(words) < 20:
+        return "Spam"
+
+    positive_keywords = [
+        "excellent",
+        "amazing",
+        "perfect",
+        "fantastic",
+        "great",
+        "awesome",
+        "wonderful",
+        "superb",
+        "outstanding",
+        "best",
+    ]
+    negative_keywords = [
+        "worst",
+        "terrible",
+        "awful",
+        "horrible",
+        "bad",
+        "poor",
+        "disappointing",
+        "useless",
+        "trash",
+        "lousy",
+    ]
+
+    pos_count = sum(1 for word in words if word in positive_keywords)
+    neg_count = sum(1 for word in words if word in negative_keywords)
+
+    net_sentiment = pos_count - neg_count
+
+    if pos_count >= 2 and net_sentiment > 0:
+        return "Overly positive"
+    elif neg_count >= 2 and net_sentiment < 0:
+        return "Overly negative"
+
+    if len(words) < 5:
+        generic_phrases = ["good product", "nice", "okay", "works well", "not bad"]
+        if any(phrase in text_lower for phrase in generic_phrases):
+            return "Too short"
+    return "Generic fake"
