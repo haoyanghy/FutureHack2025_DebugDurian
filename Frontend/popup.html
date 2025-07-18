@@ -1,3 +1,52 @@
+<?php
+// index.php
+
+$result = null;
+$error = null;
+
+// Handle POST form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $model = $_POST['model'] ?? '';
+    $reviewText = trim($_POST['reviewText'] ?? '');
+    $imageData = $_POST['imageData'] ?? '';
+
+    if (!$model) {
+        $error = "Please select a model.";
+    } elseif (!$reviewText && !$imageData) {
+        $error = "Please enter or capture review text.";
+    } else {
+        // Prepare data to send to Python backend
+        $postData = [
+            'model' => $model,
+            'reviewText' => $reviewText,
+            'imageData' => $imageData
+        ];
+
+        // Initialize cURL
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, 'http://localhost:5000/analyze');
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        
+        // Execute and get response
+        $response = curl_exec($ch);
+        curl_close($ch);
+
+        // Process response
+        if ($response) {
+            $result = json_decode($response, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $error = "Invalid response from server";
+            }
+        } else {
+            $error = "Failed to connect to analysis server";
+        }
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,15 +62,21 @@
       <h2>Fake Review Detector</h2>
     </div>
 
-    <form id="reviewForm">
+    <?php if ($error): ?>
+      <div class="error"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
+
+    <form id="reviewForm" method="post" action="">
+      <input type="hidden" id="imageData" name="imageData" value="">
+      
       <div class="form-section">
         <div class="form-group">
           <label for="modelSelect">Select Model:</label>
           <select id="modelSelect" name="model" required>
-            <option value="" disabled selected>Select a model</option>
-            <option value="bert">BERT</option>
-            <option value="roberta">RoBERTa</option>
-            <option value="electra">ELECTRA</option>
+            <option value="" disabled <?= !$model ? 'selected' : '' ?>>Select a model</option>
+            <option value="bert" <?= ($model ?? '') === 'bert' ? 'selected' : '' ?>>BERT</option>
+            <option value="roberta" <?= ($model ?? '') === 'roberta' ? 'selected' : '' ?>>RoBERTa</option>
+            <option value="electra" <?= ($model ?? '') === 'electra' ? 'selected' : '' ?>>ELECTRA</option>
           </select>
         </div>
       </div>
@@ -29,7 +84,7 @@
       <div class="form-section">
         <div class="form-group">
           <label for="reviewText">Enter Review Text:</label>
-          <textarea id="reviewText" rows="5" placeholder="Paste or capture review text here"></textarea>
+          <textarea id="reviewText" name="reviewText" rows="5" placeholder="Paste or capture review text here"><?= htmlspecialchars($reviewText ?? '') ?></textarea>
         </div>
       </div>
 
@@ -38,24 +93,58 @@
           <span class="icon">📷</span>
           <span>Capture & Crop from Screen</span>
         </button>
-        <div id="screenshotContainer" class="empty"></div>
+        <div id="screenshotContainer" class="empty">
+          <div id="selectionArea"></div>
+        </div>
         <div class="clear-btn-container">
-          <button id="clearCapture" class="hidden small-btn">Clear</button>
+          <button type="button" id="clearCapture" class="hidden small-btn">Clear</button>
         </div>
         <canvas id="overlayCanvas" style="display:none;"></canvas>
       </div>
 
       <div class="submit-section">
-        <button type="submit" id="submitBtn" class="primary-btn" disabled>
+        <button type="submit" id="submitBtn" class="primary-btn">
           Analyze Review
         </button>
       </div>
     </form>
 
-    <div id="results" class="results-container hidden">
+    <?php if ($result): ?>
+    <div id="results" class="results-container">
       <h3>Results</h3>
-      <div id="reviewResults"></div>
+      <?php foreach ((array)$result as $res): ?>
+        <div class="result-item">
+          <p><strong>Review:</strong> <?= htmlspecialchars($res['review'] ?? '') ?></p>
+          <p><strong>Label:</strong> <?= htmlspecialchars($res['label'] ?? '') ?></p>
+          <p><strong>Confidence:</strong> <?= isset($res['confidence']) ? number_format($res['confidence'] * 100, 2) : '0' ?>%</p>
+          <?php if (($res['label'] ?? '') === 'fake' && !empty($res['cluster_type'])): ?>
+            <p><strong>Category:</strong> <?= htmlspecialchars($res['cluster_type']) ?></p>
+          <?php endif; ?>
+          <?php if (!empty($res['explanation'])): ?>
+            <div><strong>Explanation:</strong>
+              <div class="heatmap-container">
+                <?php 
+                  $maxVal = 1;
+                  if (!empty($res['explanation'])) {
+                      $maxVal = max(array_map(fn($e) => abs($e[1]), $res['explanation']));
+                  }
+                  foreach ($res['explanation'] as [$word, $value]):
+                    $intensity = abs($value) / $maxVal;
+                    $red = (int)(255 * $intensity);
+                    $green = (int)(255 * (1 - $intensity));
+                ?>
+                  <span style="background-color: rgb(<?= $red ?>, <?= $green ?>, 0);" 
+                        title="Sentiment contribution: <?= number_format($value, 4) ?>">
+                    <?= htmlspecialchars($word) ?>
+                  </span>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
     </div>
+    <?php endif; ?>
 
     <div id="loadingContainer" class="loading-container hidden">
       <div class="spinner"></div>
@@ -66,6 +155,137 @@
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const captureBtn = document.getElementById('capture');
+      const clearCaptureBtn = document.getElementById('clearCapture');
+      const screenshotContainer = document.getElementById('screenshotContainer');
+      const reviewText = document.getElementById('reviewText');
+      const imageDataInput = document.getElementById('imageData');
+      const overlayCanvas = document.getElementById('overlayCanvas');
+      const ctx = overlayCanvas.getContext('2d');
+      
+      let isSelecting = false;
+      let startX, startY;
+      let screenshotImg = null;
+
+      // Screen capture functionality
+      captureBtn.addEventListener('click', async function() {
+        try {
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { mediaSource: 'screen' }
+          });
+          
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          
+          video.onloadedmetadata = () => {
+            video.play();
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            stream.getTracks().forEach(track => track.stop());
+            
+            const screenshotUrl = canvas.toDataURL('image/png');
+            screenshotImg = new Image();
+            screenshotImg.src = screenshotUrl;
+            
+            screenshotImg.onload = function() {
+              screenshotContainer.innerHTML = '';
+              screenshotContainer.appendChild(screenshotImg);
+              screenshotContainer.classList.remove('empty');
+              clearCaptureBtn.classList.remove('hidden');
+              
+              overlayCanvas.width = screenshotImg.width;
+              overlayCanvas.height = screenshotImg.height;
+              
+              initSelection();
+            };
+          };
+        } catch (err) {
+          console.error('Error capturing screen:', err);
+          alert('Failed to capture screen: ' + err.message);
+        }
+      });
+      
+      // Clear capture
+      clearCaptureBtn.addEventListener('click', function() {
+        screenshotContainer.innerHTML = '';
+        screenshotContainer.classList.add('empty');
+        clearCaptureBtn.classList.add('hidden');
+        imageDataInput.value = '';
+      });
+      
+      // Selection functionality
+      function initSelection() {
+        const selectionArea = document.createElement('div');
+        selectionArea.id = 'selectionArea';
+        selectionArea.style.cssText = 'position:absolute;border:2px dashed red;background-color:rgba(255,0,0,0.1);display:none;';
+        screenshotContainer.appendChild(selectionArea);
+        
+        screenshotImg.addEventListener('mousedown', startSelection);
+        screenshotImg.addEventListener('mousemove', updateSelection);
+        screenshotImg.addEventListener('mouseup', endSelection);
+        
+        function startSelection(e) {
+          isSelecting = true;
+          const rect = screenshotImg.getBoundingClientRect();
+          startX = e.clientX - rect.left;
+          startY = e.clientY - rect.top;
+          
+          selectionArea.style.left = startX + 'px';
+          selectionArea.style.top = startY + 'px';
+          selectionArea.style.width = '0px';
+          selectionArea.style.height = '0px';
+          selectionArea.style.display = 'block';
+        }
+        
+        function updateSelection(e) {
+          if (!isSelecting) return;
+          const rect = screenshotImg.getBoundingClientRect();
+          const currentX = e.clientX - rect.left;
+          const currentY = e.clientY - rect.top;
+          
+          selectionArea.style.width = Math.abs(currentX - startX) + 'px';
+          selectionArea.style.height = Math.abs(currentY - startY) + 'px';
+          
+          if (currentX < startX) selectionArea.style.left = currentX + 'px';
+          if (currentY < startY) selectionArea.style.top = currentY + 'px';
+        }
+        
+        function endSelection() {
+          if (!isSelecting) return;
+          isSelecting = false;
+          
+          const left = parseInt(selectionArea.style.left);
+          const top = parseInt(selectionArea.style.top);
+          const width = parseInt(selectionArea.style.width);
+          const height = parseInt(selectionArea.style.height);
+          
+          overlayCanvas.width = width;
+          overlayCanvas.height = height;
+          ctx.drawImage(screenshotImg, left, top, width, height, 0, 0, width, height);
+          
+          const croppedImageUrl = overlayCanvas.toDataURL('image/png');
+          imageDataInput.value = croppedImageUrl;
+          
+          screenshotContainer.innerHTML = '';
+          const croppedImg = new Image();
+          croppedImg.src = croppedImageUrl;
+          croppedImg.style.maxWidth = '100%';
+          screenshotContainer.appendChild(croppedImg);
+        }
+      }
+
+      // Form submission
+      document.getElementById('reviewForm').addEventListener('submit', function() {
+        document.getElementById('loadingContainer').classList.remove('hidden');
+      });
+    });
+  </script>
 </body>
 </html>
