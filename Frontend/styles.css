@@ -108,3 +108,24 @@ button:hover {
   background-color: #4CAF50;
   transition: width 0.3s ease-in-out;
 }
+
+#screenshotContainer {
+  max-width: 100%;
+  max-height: 250px;
+  overflow: auto;
+}
+
+#screenshotContainer img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#overlayCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  cursor: crosshair;
+  display: none;
+}

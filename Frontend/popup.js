@@ -3,11 +3,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const reviewForm = document.getElementById('reviewForm');
   const resultsDiv = document.getElementById('results');
   const reviewResults = document.getElementById('reviewResults');
-  const cropBtn = document.getElementById('cropBtn');
   const submitBtn = document.getElementById('submitBtn');
   const platformSelect = document.getElementById('platform');
   const scrapeBtn = document.getElementById('scrapeBtn');
-  const urlInputField = document.getElementById('urlInput');
+  const captureButton = document.getElementById('capture');
+  const imgResultDiv = document.getElementById('results');
+
+  let lastCroppedImage = null;
 
   // API configuration
   const API_URL = 'http://localhost:8000/durian/review';
@@ -144,13 +146,59 @@ document.addEventListener('DOMContentLoaded', function() {
     resultsDiv.classList.remove('hidden');
   }
 
-  // Crop button functionality
-  cropBtn.addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: "activateCropMode"});
-    });
+  // Display image function
+  function displayImage(dataUrl) {
+    imgResultDiv.innerHTML = "";
+    const img = new Image();
+    img.src = dataUrl;
+    img.alt = "Cropped Screenshot";
+    img.style.maxWidth = "100%";
+    imgResultDiv.appendChild(img);
+    imgResultDiv.classList.remove('hidden');
+  }
+
+  // Initialize with stored image
+  chrome.storage.local.get('lastCroppedImage', (result) => {
+    if (result.lastCroppedImage) {
+      displayImage(result.lastCroppedImage);
+    }
   });
 
+  // Message listener (keep this as is)
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "croppedImage") {
+      lastCroppedImage = request.dataUrl;
+      displayImage(request.dataUrl);
+      chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
+    }
+  });
+
+  // Simplified capture button handler
+  captureButton.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ action: "capture" }, (response) => {
+      if (response.error) {
+        alert(response.error);
+        return;
+      }
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0].id;
+        chrome.scripting.executeScript(
+          {
+            target: { tabId },
+            files: ["crop.js"]
+          },
+          () => {
+            chrome.tabs.sendMessage(tabId, {
+              action: "startCropping",
+              screenshot: response.screenshot
+            });
+          }
+        );
+      });
+    });
+  });
+  
   // Initialize the platform selection handler
   platformSelect.addEventListener('change', function() {
       const platformSelected = this.value !== "";
