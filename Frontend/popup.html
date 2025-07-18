@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Fake Review Detector</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -24,6 +24,7 @@
           </select>
         </div>
       </div>
+
       <div class="input-methods">
         <div class="form-section">
           <div class="form-group">
@@ -31,9 +32,9 @@
             <textarea id="reviewText" rows="5" placeholder="Paste review text here"></textarea>
           </div>
         </div>
-        <div class="or-divider">
-          <span>OR</span>
-        </div>
+
+        <div class="or-divider"><span>OR</span></div>
+
         <div class="form-section">
           <button type="button" id="capture" class="method-btn">
             <span class="icon">📷</span>
@@ -43,11 +44,11 @@
           <div class="clear-btn-container">
             <button id="clearCapture" class="hidden small-btn">Clear</button>
           </div>
-          <canvas id="overlayCanvas"></canvas>
+          <canvas id="overlayCanvas" style="display: none;"></canvas>
         </div>
-        <div class="or-divider">
-          <span>OR</span>
-        </div>
+
+        <div class="or-divider"><span>OR</span></div>
+
         <div class="form-section">
           <div class="form-group">
             <label for="platform">Scrape from Platform:</label>
@@ -72,16 +73,19 @@
           </div>
         </div>
       </div>
+
       <div class="submit-section">
         <button type="submit" id="submitBtn" class="primary-btn" disabled>
           Analyze Review
         </button>
       </div>
     </form>
+
     <div id="results" class="results-container hidden">
       <h3>Results</h3>
       <div id="reviewResults"></div>
     </div>
+
     <div id="loadingContainer" class="loading-container hidden">
       <div class="spinner"></div>
       <div class="progress-bar">
@@ -90,6 +94,7 @@
       <p id="loadingText">Analyzing review...</p>
     </div>
   </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
