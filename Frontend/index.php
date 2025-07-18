@@ -46,6 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* Basic styles for demonstration */
     .error { color: red; margin-bottom: 1em; }
     .results-container { margin-top: 1em; border: 1px solid #ccc; padding: 1em; }
+    #screenshotContainer { border: 1px dashed #ccc; margin: 10px 0; min-height: 100px; position: relative; }
+    #screenshotContainer img { max-width: 100%; }
+    #screenshotContainer.empty { background-color: #f5f5f5; }
+    #selectionArea { position: absolute; border: 2px dashed red; background-color: rgba(255,0,0,0.1); display: none; }
+    .hidden { display: none; }
+    .clear-btn-container { text-align: right; }
+    .small-btn { padding: 3px 8px; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -84,7 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <span class="icon">📷</span>
           <span>Capture & Crop from Screen</span>
         </button>
-        <div id="screenshotContainer" class="empty"></div>
+        <div id="screenshotContainer" class="empty">
+          <div id="selectionArea"></div>
+        </div>
         <div class="clear-btn-container">
           <button type="button" id="clearCapture" class="hidden small-btn">Clear</button>
         </div>
@@ -144,6 +153,159 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const captureBtn = document.getElementById('capture');
+      const clearCaptureBtn = document.getElementById('clearCapture');
+      const screenshotContainer = document.getElementById('screenshotContainer');
+      const selectionArea = document.getElementById('selectionArea');
+      const reviewText = document.getElementById('reviewText');
+      const overlayCanvas = document.getElementById('overlayCanvas');
+      const ctx = overlayCanvas.getContext('2d');
+      
+      let isSelecting = false;
+      let startX, startY, endX, endY;
+      let screenshotImg = null;
+
+      // Handle capture button click
+      captureBtn.addEventListener('click', async function() {
+        try {
+          // Use the Screen Capture API
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { mediaSource: 'screen' }
+          });
+          
+          // Create video element to capture the screen
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.onloadedmetadata = () => {
+            video.play();
+            
+            // Create canvas to take screenshot
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Stop the stream
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Show the screenshot for cropping
+            const screenshotUrl = canvas.toDataURL('image/png');
+            screenshotImg = new Image();
+            screenshotImg.src = screenshotUrl;
+            
+            screenshotImg.onload = function() {
+              screenshotContainer.innerHTML = '';
+              screenshotContainer.appendChild(screenshotImg);
+              screenshotContainer.appendChild(selectionArea);
+              screenshotContainer.classList.remove('empty');
+              clearCaptureBtn.classList.remove('hidden');
+              
+              // Set canvas size to match image
+              overlayCanvas.width = screenshotImg.width;
+              overlayCanvas.height = screenshotImg.height;
+              
+              // Initialize selection area
+              initSelection();
+            };
+          };
+        } catch (err) {
+          console.error('Error capturing screen:', err);
+          alert('Failed to capture screen: ' + err.message);
+        }
+      });
+      
+      // Handle clear capture button
+      clearCaptureBtn.addEventListener('click', function() {
+        screenshotContainer.innerHTML = '<div id="selectionArea"></div>';
+        screenshotContainer.classList.add('empty');
+        clearCaptureBtn.classList.add('hidden');
+        reviewText.value = '';
+        isSelecting = false;
+      });
+      
+      // Initialize selection functionality
+      function initSelection() {
+        screenshotImg.addEventListener('mousedown', startSelection);
+        screenshotImg.addEventListener('mousemove', updateSelection);
+        screenshotImg.addEventListener('mouseup', endSelection);
+      }
+      
+      function startSelection(e) {
+        isSelecting = true;
+        const rect = screenshotImg.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        
+        selectionArea.style.left = startX + 'px';
+        selectionArea.style.top = startY + 'px';
+        selectionArea.style.width = '0px';
+        selectionArea.style.height = '0px';
+        selectionArea.style.display = 'block';
+      }
+      
+      function updateSelection(e) {
+        if (!isSelecting) return;
+        
+        const rect = screenshotImg.getBoundingClientRect();
+        endX = e.clientX - rect.left;
+        endY = e.clientY - rect.top;
+        
+        const width = endX - startX;
+        const height = endY - startY;
+        
+        selectionArea.style.width = Math.abs(width) + 'px';
+        selectionArea.style.height = Math.abs(height) + 'px';
+        
+        if (width < 0) {
+          selectionArea.style.left = endX + 'px';
+        }
+        if (height < 0) {
+          selectionArea.style.top = endY + 'px';
+        }
+      }
+      
+      function endSelection() {
+        if (!isSelecting) return;
+        isSelecting = false;
+        
+        // Get the final coordinates
+        const left = parseInt(selectionArea.style.left);
+        const top = parseInt(selectionArea.style.top);
+        const width = parseInt(selectionArea.style.width);
+        const height = parseInt(selectionArea.style.height);
+        
+        // Hide selection area
+        selectionArea.style.display = 'none';
+        
+        // Perform OCR on the selected area (in a real app, you'd use Tesseract.js or similar)
+        // For demo purposes, we'll just extract the image and show it
+        
+        // Create canvas with the selected area
+        overlayCanvas.width = width;
+        overlayCanvas.height = height;
+        ctx.drawImage(
+          screenshotImg,
+          left, top, width, height,
+          0, 0, width, height
+        );
+        
+        // Convert to data URL and show in the textarea (in real app, use OCR here)
+        const croppedImageUrl = overlayCanvas.toDataURL('image/png');
+        reviewText.value = "Review text extracted from image would appear here.\n(Image captured: " + croppedImageUrl.substring(0, 50) + "...)";
+        
+        // For demo, we'll just show the cropped area
+        screenshotContainer.innerHTML = '';
+        const croppedImg = new Image();
+        croppedImg.src = croppedImageUrl;
+        croppedImg.style.maxWidth = '100%';
+        screenshotContainer.appendChild(croppedImg);
+      }
+    });
+  </script>
 </body>
 </html>
