@@ -4,6 +4,7 @@ from transformers import (
     AutoTokenizer,
 )
 from lime.lime_text import LimeTextExplainer
+from typing import List, Dict, Any
 import numpy as np
 
 # Model configurations
@@ -36,6 +37,28 @@ for model_type in MODEL_CONFIGS:
         class_names=MODEL_CONFIGS[model_type]["class_names"]
     )
 
+def predict_batch(texts: List[str], model_type: str) -> List[Dict[str, Any]]:
+    results = []
+    for text in texts:
+        try:
+            label, confidence = predict_review(text, model_type)
+            explanation = get_lime_explanation(text, model_type)
+            cluster_type = None
+            if label == "fake":
+                cluster_type = detect_cluster_type(text) 
+                results.append({
+                "review": text,
+                "label": label,
+                "confidence": confidence,
+                "cluster_type": cluster_type,
+                "explanation": explanation
+            })
+        except Exception as e:
+            results.append({
+                "review": text,
+                "error": str(e)
+            }) 
+    return results
 
 def predict_review(text: str, model_type: str) -> tuple[str, float]:
     """
@@ -84,3 +107,15 @@ def get_lime_explanation(text: str, model_type: str) -> list:
         num_samples=500,
     )
     return explanation.as_list()
+
+# !!!!!!!!!!!!!!!!!!!!!!11
+def detect_cluster_type(text: str) -> str:
+    text_lower = text.lower()
+    if any(word in text_lower for word in ["excellent", "amazing", "perfect"]):
+        return "overly_positive"
+    elif any(word in text_lower for word in ["worst", "terrible", "awful"]):
+        return "overly_negative"
+    elif len(text.split()) < 10:
+        return "too_short"
+    else:
+        return "generic_fake"
