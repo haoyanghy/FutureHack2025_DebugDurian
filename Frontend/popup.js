@@ -1,5 +1,5 @@
-document.addEventListener('DOMContentLoaded', function() {
-  // DOM elements
+document.addEventListener('DOMContentLoaded', function () {
+  // Existing variables and handlers...
   const reviewForm = document.getElementById('reviewForm');
   const resultsDiv = document.getElementById('results');
   const reviewResults = document.getElementById('reviewResults');
@@ -12,10 +12,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let lastCroppedImage = null;
 
-  // API configuration
   const API_URL = 'http://localhost:8000/durian/review';
 
-  //--------------------Loading Session------------------
   const showLoading = (text = 'Loading...') => {
     document.getElementById('loadingText').textContent = text;
     document.getElementById('loadingContainer').classList.remove('hidden');
@@ -30,37 +28,23 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('progressFill').style.width = `${percent}%`;
   };
 
-  //------------------Function------------------------------
-
-  // Handle form submission
-  reviewForm.addEventListener('submit', async function(e) {
+  // Submit review form to FastAPI
+  reviewForm.addEventListener('submit', async function (e) {
     e.preventDefault();
-    
     const reviewText = document.getElementById('reviewText').value.trim();
     const modelSelect = document.getElementById('modelSelect').value;
-    
-    if (!reviewText) {
-      alert('Please enter review text');
-      return;
-    }
+    if (!reviewText) return alert('Please enter review text');
 
     showLoading('Analyzing review...');
     updateProgressBar(30);
-    // Set loading state
     submitBtn.disabled = true;
     submitBtn.textContent = 'Analyzing...';
 
     try {
-      // Make API request
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: reviewText,
-          model: modelSelect
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: reviewText, model: modelSelect })
       });
 
       updateProgressBar(60);
@@ -72,7 +56,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       const data = await response.json();
       displayResults(data);
-
       updateProgressBar(90);
       setTimeout(hideLoading, 500);
     } catch (error) {
@@ -80,48 +63,28 @@ document.addEventListener('DOMContentLoaded', function() {
       alert(`Error: ${error.message}`);
       hideLoading();
     } finally {
-      // Reset button state
       submitBtn.disabled = false;
       submitBtn.textContent = 'Analyze Review';
     }
   });
 
-  // Display results function
   function displayResults(data) {
     reviewResults.innerHTML = '';
-    
     data.forEach(result => {
       const resultDiv = document.createElement('div');
       resultDiv.className = 'result-item';
-      
-      // Review text
-      const reviewP = document.createElement('p');
-      reviewP.innerHTML = `<strong>Review:</strong> ${result.review}`;
-      resultDiv.appendChild(reviewP);
-      
-      // Label
-      const labelP = document.createElement('p');
-      labelP.innerHTML = `<strong>Label:</strong> ${result.label}`;
-      resultDiv.appendChild(labelP);
-      
-      // Confidence
-      const confidenceP = document.createElement('p');
-      confidenceP.innerHTML = `<strong>Confidence:</strong> ${(result.confidence * 100).toFixed(2)}%`;
-      resultDiv.appendChild(confidenceP);
-      
-      // Category (for fake reviews)
+
+      resultDiv.innerHTML += `
+        <p><strong>Review:</strong> ${result.review}</p>
+        <p><strong>Label:</strong> ${result.label}</p>
+        <p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(2)}%</p>
+      `;
       if (result.label === 'fake' && result.cluster_type) {
-        const categoryP = document.createElement('p');
-        categoryP.innerHTML = `<strong>Category:</strong> ${result.cluster_type?? 'Null'}`;
-        resultDiv.appendChild(categoryP);
+        resultDiv.innerHTML += `<p><strong>Category:</strong> ${result.cluster_type ?? 'Null'}</p>`;
       }
-      
-      // Explanation (heatmap)
-      const explanationDiv = document.createElement('div');
-      explanationDiv.innerHTML = '<strong>Explanation:</strong>';
+
       const heatmapDiv = document.createElement('div');
       heatmapDiv.className = 'heatmap-container';
-      
       if (result.explanation && Array.isArray(result.explanation)) {
         const maxVal = Math.max(...result.explanation.map(([_, v]) => Math.abs(v))) || 1;
         result.explanation.forEach(([word, value]) => {
@@ -138,12 +101,9 @@ document.addEventListener('DOMContentLoaded', function() {
           heatmapDiv.appendChild(span);
         });
       }
-      
-      explanationDiv.appendChild(heatmapDiv);
-      resultDiv.appendChild(explanationDiv);
+      resultDiv.appendChild(heatmapDiv);
       reviewResults.appendChild(resultDiv);
     });
-    
     resultsDiv.classList.remove('hidden');
   }
 
@@ -186,179 +146,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "croppedImage") {
-      lastCroppedImage = request.dataUrl;
-      displayImage(request.dataUrl);
-      chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
-    }
-    return true; 
-  });
-
-  captureButton.addEventListener("click", () => {
-    imgResultDiv.classList.add('active'); 
-
-    chrome.runtime.sendMessage({ action: "capture" }, (response) => {
-      if (response.error) {
-        alert(response.error);
-        return;
-      }
-
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tabId = tabs[0].id;
-        chrome.scripting.executeScript(
-          {
-            target: { tabId },
-            files: ["crop.js"]
-          },
-          () => {
-            chrome.tabs.sendMessage(tabId, {
-              action: "startCropping",
-              screenshot: response.screenshot
-            });
-          }
-        );
-      });
-    });
-  });
-  
-  platformSelect.addEventListener('change', function() {
-      const platformSelected = this.value !== "";
-      scrapeBtn.disabled = !platformSelected;
-      const urlInput = document.getElementById('urlInput');
-      if (platformSelected) {
-          urlInput.classList.remove('hidden');
-      } else {
-          urlInput.classList.add('hidden');
-      }
-      document.getElementById('scrapedText').classList.add('hidden');
-      document.getElementById('scrapedReviews').value = '';
-  });
-
-  scrapeBtn.addEventListener('click', async () => {
-    const platform = document.getElementById('platform').value;
-    const productUrl = document.getElementById('url').value.trim();
-
-    const platformDomains = {
-      amazon: "amazon.",
-      shopee: "shopee.",
-      lazada: "lazada."
-    }
-
-    if (!productUrl || !productUrl.includes(platformDomains[platform])) {
-      alert(`Please enter a valid ${platform} product URL`);
-      return;
-    }
-
-    showLoading(`Scraping ${platform.charAt(0).toUpperCase() + platform.slice(1)} reviews...`);
-    updateProgressBar(10);
-
-    chrome.tabs.create({ url: productUrl, active: false }, (tab) => {
-      const tabId = tab.id;
-      let attempts = 0;
-      const maxAttempts = 3;
-
-      const scrapeReviews = () => {
-        attempts++;
-        updateProgressBar(10 + (attempts * 25));
-
-        chrome.scripting.executeScript({
-          target: { tabId },
-          func: (platform) => {
-            if (document.querySelector('#captchacharacters')) {
-              return { status: 'captcha_blocked', reviews: [] };
-            }
-
-            let reviews = [];
-
-            if (platform === 'amazon') {
-              const containers = document.querySelectorAll('[data-hook="review"]');
-              containers.forEach(container => {
-                const textEl = container.querySelector('[data-hook="review-body"] span') || container.querySelector('.review-text-content');
-                if (textEl) reviews.push(textEl.textContent.trim());
-              });
-            } else if (platform === 'shopee') {
-              setTimeout(() => {
-                document.querySelectorAll('.shopee-product-rating__main, .YNedDV').forEach(el => {
-                  const text = el.textContent.trim();
-                  if (text) reviews.push(text);
-                });
-                console.log(reviews); 
-              }, 3000);
-            } else if (platform === 'lazada') {
-              return new Promise((resolve) => {
-                window.scrollTo(0, document.body.scrollHeight);
-                setTimeout(() => {
-                  const selectorsToTry = [
-                    '.item-content-main-content-reviews-item span',
-                    '.lzd-review-content span',
-                    '[class*="review"] span',
-                    '.next-card-body p'
-                  ];
-                  for (const selector of selectorsToTry) {
-                    const elements = document.querySelectorAll(selector);
-                    if (elements.length > 0) {
-                      elements.forEach(el => {
-                        const text = el.textContent.trim();
-                        if (text.length > 10) reviews.push(text);
-                      });
-                      break;
-                    }
-                  }
-                  resolve({
-                    status: reviews.length ? 'success' : 'no_reviews',
-                    reviews: reviews
-                  });
-                }, 3000);
-              });
-            }
-
-            return {
-              status: reviews.length ? 'success' : 'no_reviews',
-              reviews,
-              containerCount: reviews.length
-            };
-          },
-          args: [platform]
-        }, (results) => {
-          const result = results?.[0]?.result || { status: 'error', reviews: [] };
-
-          if (result.status === 'success' && result.reviews.length > 0) {
-            updateProgressBar(90);
-            const combined = result.reviews.join(' | ');  
-
-            chrome.storage.local.set({ extractedText: combined }, () => {
-              document.getElementById('scrapedReviews').value = combined;
-              document.querySelector('#scrapedText').style.display = 'block';
-
-              chrome.tabs.remove(tabId);
-              updateProgressBar(100);
-              setTimeout(() => {
-                hideLoading();
-                alert(`Successfully scraped ${result.reviews.length} ${platform} reviews!`);
-              }, 500);
-            });
-          }
-          else if (result.status === 'captcha_blocked') {
-            chrome.tabs.remove(tabId);
-            hideLoading();
-            alert(`${platform.charAt(0).toUpperCase() + platform.slice(1)} is showing CAPTCHA. Please solve it manually and try again.`);
-          }
-          else if (attempts < maxAttempts) {
-            setTimeout(scrapeReviews, 3000);
-          }
-          else {
-            chrome.tabs.remove(tabId);
-            hideLoading();
-            let message = `${platform.charAt(0).toUpperCase() + platform.slice(1)} Review Scraping Failed\n\n`;
-            message += `Technical details:\nStatus: ${result.status}\nReviews found: ${result.containerCount || 0}`;
-
-            alert(message);
-          }
-        });
-      };
-
-      setTimeout(scrapeReviews, 7000);
-    });
-  });
-});
+  chrome.runtime.onMessage.addListener((request, sender, sendRes
