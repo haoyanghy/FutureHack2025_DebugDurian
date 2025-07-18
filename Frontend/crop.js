@@ -80,12 +80,6 @@ function startCropping(screenshotDataUrl) {
 
     const croppedImg = new Image();
     croppedImg.src = croppedCanvas.toDataURL("image/png");
-    croppedImg.style.position = "fixed";
-    croppedImg.style.top = "10px";
-    croppedImg.style.right = "10px";
-    croppedImg.style.maxWidth = "300px";
-    croppedImg.style.border = "2px solid black";
-    croppedImg.style.zIndex = 1000000;
 
     document.body.appendChild(croppedImg);
     canvas.remove(); 
@@ -93,8 +87,14 @@ function startCropping(screenshotDataUrl) {
     chrome.runtime.sendMessage({
       action: "croppedImage",
       dataUrl: croppedImg.src
-    })
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Message failed:", chrome.runtime.lastError);
+      }
+    });
     
+    chrome.storage.local.set({ lastCroppedImage: croppedImg.src });
+      
   });
 }
 
