@@ -48,21 +48,95 @@ You have two options to prepare the NLP models (BERT, RoBERTa, ELECTRA):
 
 ### 2. Run the Backend
 
-The backend is built with FastAPI and processes review text using the selected model.
+The backend is built with FastAPI and processes review text using the selected model. The screen cropping feature requires Tesseract OCR for text extraction from images.
+
+#### Install Tesseract OCR
+
+Tesseract is required for the screen cropping feature to extract text from images. Install Tesseract for your operating system using the instructions below, ensuring the correct installation path.
+
+- **Windows**:
+
+  1. Download the Tesseract installer from UB Mannheim.
+
+  2. Run the installer and install Tesseract to the default path: `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+
+  3. Verify the installation by opening a command prompt and running:
+
+     ```bash
+     "C:\Program Files\Tesseract-OCR\tesseract.exe" --version
+     ```
+
+     Ensure the path above matches the installed location.
+
+- **macOS**:
+
+  1. Install Homebrew if not already installed:
+
+     ```bash
+     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+     ```
+
+  2. Install Tesseract using Homebrew:
+
+     ```bash
+     brew install tesseract
+     ```
+
+  3. Verify the installation by running:
+
+     ```bash
+     /usr/local/bin/tesseract --version
+     ```
+
+     The Tesseract executable should be located at `/usr/local/bin/tesseract`.
+
+- **Linux**:
+
+  1. Install Tesseract using your package manager:
+
+     - For Ubuntu/Debian:
+
+       ```bash
+       sudo apt-get update
+       sudo apt-get install tesseract-ocr
+       ```
+
+     - For CentOS/RHEL:
+
+       ```bash
+       sudo yum install tesseract
+       ```
+
+  2. Verify the installation by running:
+
+     ```bash
+     tesseract --version
+     ```
+
+     The Tesseract executable should be located at `/usr/bin/tesseract`.
+
+#### Backend Setup
 
 1. Navigate to the `backend` folder:
+
    ```bash
    cd backend
    ```
-2. Install dependencies:
+
+2. Install Python dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
+
 3. Start the FastAPI server:
+
    ```bash
    uvicorn main:app --host 0.0.0.0 --port 8000
    ```
+
 4. Verify the server is running at `http://localhost:8000`.
+
 5. View the API documentation at `http://localhost:8000/docs`.
 
 ### 3. Install and Run the Chrome Extension
