@@ -103,10 +103,12 @@ def get_lime_explanation(text: str, model_type: str) -> list:
         return probs.numpy()
 
     processed_text = text.replace("\n", " ").strip()
+    words = processed_text.split()
+    num_features = min(20, max(10, int(len(words) * 0.2)))  # Dynamic num_features
     explanation = explainers[model_type].explain_instance(
         processed_text,
         classifier_fn=classifier_fn,
-        num_features=5,
+        num_features=num_features,
         num_samples=500,
     )
     return explanation.as_list()

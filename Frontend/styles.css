@@ -194,10 +194,22 @@ select, textarea, input {
 }
 
 .heatmap-container {
-  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 10px;
-  padding: 5px;
+  padding: 8px;
   border-radius: 4px;
+  line-height: 1.5;
+}
+
+.heatmap-container span {
+  display: inline-block;
+  padding: 3px 6px;
+  margin: 2px;
+  border-radius: 3px;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .heatmap-container:hover::before {
