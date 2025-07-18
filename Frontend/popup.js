@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   urlField.addEventListener('input', function() {
+    currentInputMethod = 'url';
     updateSubmitButtonState();
   });
 
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     showLoading(`Scraping ${platform.charAt(0).toUpperCase() + platform.slice(1)} reviews...`);
-    updateProgressBar(10);
+    updateProgressBar(10, 'Initializing scraping...');
 
     try {
       const scrapedText = await scrapeReviews(platform, productUrl);
@@ -170,10 +171,13 @@ document.addEventListener('DOMContentLoaded', function() {
         displayImage(request.dataUrl);
         chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
         
+        alert('Extracting text from cropped image...');
         showLoading('Extracting text from image...');
         const extracted = await extractTextFromImage(request.dataUrl);
         
+        console.log("Extracted text:", extracted.text);
         reviewTextarea.value = extracted.text;
+        reviewTextarea.focus();
         currentInputMethod = 'image';
         updateSubmitButtonState();
         
@@ -184,26 +188,26 @@ document.addEventListener('DOMContentLoaded', function() {
         hideLoading();
       }
     }
-    return true;
   });
 
   // --------------Helper Functions------------------------------
 
   async function extractTextFromImage(imageDataUrl) {
-    const blob = await fetch(imageDataUrl).then(r => r.blob());
-    const formData = new FormData();
-    formData.append('file', blob, 'cropped_review.png');
-    
+    // Remove the header "data:image/png;base64," if present
+    const base64 = imageDataUrl.split(',')[1];
+    const model = modelSelect.value; // get the selected model
+
     const response = await fetch(EXTRACT_API_URL, {
       method: 'POST',
-      body: formData
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imgPath: base64, model })
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || 'Extraction failed');
     }
-    
+
     return await response.json();
   }
 
@@ -223,115 +227,115 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   async function scrapeReviews(platform, productUrl) {
-    showLoading(`Scraping ${platform.charAt(0).toUpperCase() + platform.slice(1)} reviews...`);
-    updateProgressBar(10);
+    return new Promise((resolve, reject) => {
+        showLoading(`Scraping ${platform.charAt(0).toUpperCase() + platform.slice(1)} reviews...`);
+        updateProgressBar(10, 'Opening product page...');
 
-    chrome.tabs.create({ url: productUrl, active: false }, (tab) => {
-      const tabId = tab.id;
-      let attempts = 0;
-      const maxAttempts = 3;
+        chrome.tabs.create({ url: productUrl, active: false }, (tab) => {
+            const tabId = tab.id;
+            let attempts = 0;
+            const maxAttempts = 3;
 
-      const scrapeReviews = () => {
-        attempts++;
-        updateProgressBar(10 + (attempts * 25));
+            const scrapeReviews = () => {
+                attempts++;
+                updateProgressBar(10 + (attempts * 25), `Attempt ${attempts}/${maxAttempts}: Loading reviews...`);
 
-        chrome.scripting.executeScript({
-          target: { tabId },
-          func: (platform) => {
-            if (document.querySelector('#captchacharacters')) {
-              return { status: 'captcha_blocked', reviews: [] };
-            }
+                chrome.scripting.executeScript({
+                    target: { tabId },
+                    func: (platform) => {
+                        if (document.querySelector('#captchacharacters')) {
+                            return { status: 'captcha_blocked', reviews: [] };
+                        }
 
-            let reviews = [];
+                        let reviews = [];
 
-            if (platform === 'amazon') {
-              const containers = document.querySelectorAll('[data-hook="review"]');
-              containers.forEach(container => {
-                const textEl = container.querySelector('[data-hook="review-body"] span') || container.querySelector('.review-text-content');
-                if (textEl) reviews.push(textEl.textContent.trim());
-              });
-            } else if (platform === 'shopee') {
-              setTimeout(() => {
-                document.querySelectorAll('.shopee-product-rating__main, .YNedDV').forEach(el => {
-                  const text = el.textContent.trim();
-                  if (text) reviews.push(text);
-                });
-                console.log(reviews); 
-              }, 3000);
-            } else if (platform === 'lazada') {
-              return new Promise((resolve) => {
-                window.scrollTo(0, document.body.scrollHeight);
-                setTimeout(() => {
-                  const selectorsToTry = [
-                    '.item-content-main-content-reviews-item span',
-                    '.lzd-review-content span',
-                    '[class*="review"] span',
-                    '.next-card-body p'
-                  ];
-                  for (const selector of selectorsToTry) {
-                    const elements = document.querySelectorAll(selector);
-                    if (elements.length > 0) {
-                      elements.forEach(el => {
-                        const text = el.textContent.trim();
-                        if (text.length > 10) reviews.push(text);
-                      });
-                      break;
+                        if (platform === 'amazon') {
+                            const containers = document.querySelectorAll('[data-hook="review"]');
+                            containers.forEach(container => {
+                                const textEl = container.querySelector('[data-hook="review-body"] span') || container.querySelector('.review-text-content');
+                                if (textEl) reviews.push(textEl.textContent.trim());
+                            });
+                        } else if (platform === 'shopee') {
+                            // Shopee needs time to load reviews
+                            const reviewElements = document.querySelectorAll('.shopee-product-rating__main, .YNedDV');
+                            reviewElements.forEach(el => {
+                                const text = el.textContent.trim();
+                                if (text) reviews.push(text);
+                            });
+                        } else if (platform === 'lazada') {
+                            // Scroll to load lazy-loaded reviews
+                            window.scrollTo(0, document.body.scrollHeight);
+                            const selectorsToTry = [
+                                '.item-content-main-content-reviews-item span',
+                                '.lzd-review-content span',
+                                '[class*="review"] span',
+                                '.next-card-body p'
+                            ];
+                            for (const selector of selectorsToTry) {
+                                const elements = document.querySelectorAll(selector);
+                                if (elements.length > 0) {
+                                    elements.forEach(el => {
+                                        const text = el.textContent.trim();
+                                        if (text.length > 10) reviews.push(text);
+                                    });
+                                    break;
+                                }
+                            }
+                        }
+
+                        return {
+                            status: reviews.length ? 'success' : 'no_reviews',
+                            reviews,
+                            containerCount: reviews.length
+                        };
+                    },
+                    args: [platform]
+                }, (results) => {
+                    const result = results?.[0]?.result || { status: 'error', reviews: [] };
+
+                    if (result.status === 'success' && result.reviews.length > 0) {
+                        updateProgressBar(90, `Processing ${result.reviews.length} reviews...`);
+                        const combined = result.reviews.join(' | ');  
+
+                        chrome.storage.local.set({ extractedText: combined }, () => {
+                            updateProgressBar(95, 'Storing results...');
+                            document.getElementById('scrapedReviews').value = combined;
+                            document.querySelector('#scrapedText').style.display = 'block';
+
+                            chrome.tabs.remove(tabId);
+                            updateProgressBar(100, 'Scraping complete!');
+                            setTimeout(() => {
+                                hideLoading();
+                                alert(`Successfully scraped ${result.reviews.length} ${platform} reviews!`);
+                                resolve(combined);
+                            }, 500);
+                        });
                     }
-                  }
-                  resolve({
-                    status: reviews.length ? 'success' : 'no_reviews',
-                    reviews: reviews
-                  });
-                }, 3000);
-              });
-            }
-
-            return {
-              status: reviews.length ? 'success' : 'no_reviews',
-              reviews,
-              containerCount: reviews.length
+                    else if (result.status === 'captcha_blocked') {
+                        chrome.tabs.remove(tabId);
+                        hideLoading();
+                        reject(new Error(`${platform.charAt(0).toUpperCase() + platform.slice(1)} is showing CAPTCHA. Please solve it manually and try again.`));
+                    }
+                    else if (attempts < maxAttempts) {
+                        updateProgressBar(10 + (attempts * 25), `Retrying (${attempts}/${maxAttempts})...`);
+                        setTimeout(scrapeReviews, 3000);
+                    }
+                    else {
+                        chrome.tabs.remove(tabId);
+                        hideLoading();
+                        let message = `${platform.charAt(0).toUpperCase() + platform.slice(1)} Review Scraping Failed\n\n`;
+                        message += `Technical details:\nStatus: ${result.status}\nReviews found: ${result.containerCount || 0}`;
+                        reject(new Error(message));
+                    }
+                });
             };
-          },
-          args: [platform]
-        }, (results) => {
-          const result = results?.[0]?.result || { status: 'error', reviews: [] };
 
-          if (result.status === 'success' && result.reviews.length > 0) {
-            updateProgressBar(90);
-            const combined = result.reviews.join(' | ');  
-
-            chrome.storage.local.set({ extractedText: combined }, () => {
-              document.getElementById('scrapedReviews').value = combined;
-              document.querySelector('#scrapedText').style.display = 'block';
-
-              chrome.tabs.remove(tabId);
-              updateProgressBar(100);
-              setTimeout(() => {
-                hideLoading();
-                alert(`Successfully scraped ${result.reviews.length} ${platform} reviews!`);
-              }, 500);
-            });
-          }
-          else if (result.status === 'captcha_blocked') {
-            chrome.tabs.remove(tabId);
-            hideLoading();
-            alert(`${platform.charAt(0).toUpperCase() + platform.slice(1)} is showing CAPTCHA. Please solve it manually and try again.`);
-          }
-          else if (attempts < maxAttempts) {
-            setTimeout(scrapeReviews, 3000);
-          }
-          else {
-            chrome.tabs.remove(tabId);
-            hideLoading();
-            let message = `${platform.charAt(0).toUpperCase() + platform.slice(1)} Review Scraping Failed\n\n`;
-            message += `Technical details:\nStatus: ${result.status}\nReviews found: ${result.containerCount || 0}`;
-
-            alert(message);
-          }
+            // Wait for page to load before first attempt
+            setTimeout(() => {
+                updateProgressBar(20, 'Page loaded, starting scrape...');
+                scrapeReviews();
+            }, 7000);
         });
-      };
-
-      setTimeout(scrapeReviews, 7000);
     });
   }
 
@@ -358,7 +362,6 @@ document.addEventListener('DOMContentLoaded', function() {
         hasContent = scrapedReviews.value.trim() !== '';
         break;
     }
-    
     submitBtn.disabled = !hasContent || modelSelect.value === '';
   }
 

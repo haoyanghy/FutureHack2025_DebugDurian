@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from predict import predict_review, get_lime_explanation
 from extract import extract_word
+import base64
+import tempfile
+import os
 
 app = FastAPI()
 
@@ -61,35 +64,28 @@ async def classify_review(review: ReviewInput):
 
 @app.post("/durian/extract")
 async def extract_review(img: ImgInput):
-    if not img.text.strip():
+    if not img.imgPath.strip():
         raise HTTPException(status_code=400, detail="Image is empty")
     if img.model not in ["bert", "roberta", "electra"]:
         raise HTTPException(
             status_code=400,
             detail="Invalid model. Choose 'bert', 'roberta', or 'electra'"
         )
-    
-    results = []
-    texts = extract_word(img.imgPath)
+    # Decode base64 and save to temp file
+    try:
+        image_data = base64.b64decode(img.imgPath)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp:
+            temp.write(image_data)
+            temp_path = temp.name
+        texts = extract_word(temp_path)
+        os.remove(temp_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image decode or OCR failed: {str(e)}")
+
     if not texts:
         raise HTTPException(status_code=400, detail="No reviews provided")
-    
-    # Split reviews by '|' delimiter
-    reviews = texts.split("|")
-    for text in reviews:
-        if text.strip():
-            label, confidence = predict_review(text.strip(), img.model)
-            explanation = get_lime_explanation(text.strip(), img.model)
-            results.append(
-                {
-                    "review": text,
-                    "label": label,
-                    "confidence": confidence,
-                    "explanation": explanation,
-                }
-            )
 
-    return results
+    return {"text": texts}
 
 if __name__ == "__main__":
     import uvicorn
