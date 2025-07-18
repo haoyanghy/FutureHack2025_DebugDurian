@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fake Review Detector</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="container">
     <div class="title-container">
-      <img src="icons/durian.png" alt="Logo" class="logo">
+      <img src="icons/durian.png" alt="Logo" class="logo" />
       <h2>Fake Review Detector</h2>
     </div>
+
     <form id="reviewForm">
       <div class="form-section">
         <div class="form-group">
@@ -24,64 +25,38 @@
           </select>
         </div>
       </div>
-      <div class="input-methods">
-        <div class="form-section">
-          <div class="form-group">
-            <label for="reviewText">Enter Review Text:</label>
-            <textarea id="reviewText" rows="5" placeholder="Paste review text here"></textarea>
-          </div>
-        </div>
-        <div class="or-divider">
-          <span>OR</span>
-        </div>
-        <div class="form-section">
-          <button type="button" id="capture" class="method-btn">
-            <span class="icon">📷</span>
-            <span>Capture & Crop from Screen</span>
-          </button>
-          <div id="screenshotContainer" class="empty"></div>
-          <div class="clear-btn-container">
-            <button id="clearCapture" class="hidden small-btn">Clear</button>
-          </div>
-          <canvas id="overlayCanvas"></canvas>
-        </div>
-        <div class="or-divider">
-          <span>OR</span>
-        </div>
-        <div class="form-section">
-          <div class="form-group">
-            <label for="platform">Scrape from Platform:</label>
-            <select id="platform">
-              <option value="" selected disabled>Choose a platform</option>
-              <option value="amazon">Amazon</option>
-              <option value="shopee">Shopee</option>
-              <option value="lazada">Lazada</option>
-            </select>
-          </div>
-          <div id="urlInput" class="form-group hidden">
-            <label for="url">Product URL:</label>
-            <input type="text" id="url" placeholder="Paste product URL here">
-          </div>
-          <button type="button" id="scrapeBtn" class="method-btn hidden">
-            <span class="icon">🔍</span>
-            <span>Scrape Reviews</span>
-          </button>
-          <div id="scrapedText" class="form-group hidden">
-            <label>Scraped Reviews:</label>
-            <textarea id="scrapedReviews" rows="5" readonly></textarea>
-          </div>
+
+      <div class="form-section">
+        <div class="form-group">
+          <label for="reviewText">Enter Review Text:</label>
+          <textarea id="reviewText" rows="5" placeholder="Paste or capture review text here"></textarea>
         </div>
       </div>
+
+      <div class="form-section">
+        <button type="button" id="capture" class="method-btn">
+          <span class="icon">📷</span>
+          <span>Capture & Crop from Screen</span>
+        </button>
+        <div id="screenshotContainer" class="empty"></div>
+        <div class="clear-btn-container">
+          <button id="clearCapture" class="hidden small-btn">Clear</button>
+        </div>
+        <canvas id="overlayCanvas" style="display:none;"></canvas>
+      </div>
+
       <div class="submit-section">
         <button type="submit" id="submitBtn" class="primary-btn" disabled>
           Analyze Review
         </button>
       </div>
     </form>
+
     <div id="results" class="results-container hidden">
       <h3>Results</h3>
       <div id="reviewResults"></div>
     </div>
+
     <div id="loadingContainer" class="loading-container hidden">
       <div class="spinner"></div>
       <div class="progress-bar">
@@ -90,6 +65,7 @@
       <p id="loadingText">Analyzing review...</p>
     </div>
   </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

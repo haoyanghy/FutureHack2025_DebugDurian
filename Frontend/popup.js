@@ -1,73 +1,157 @@
-document.addEventListener('DOMContentLoaded', function() {
-  // DOM elements
+document.addEventListener('DOMContentLoaded', function () {
   const reviewForm = document.getElementById('reviewForm');
-  const resultsDiv = document.getElementById('results');
-  const reviewResults = document.getElementById('reviewResults');
+  const reviewText = document.getElementById('reviewText');
+  const modelSelect = document.getElementById('modelSelect');
   const submitBtn = document.getElementById('submitBtn');
-  const platformSelect = document.getElementById('platform');
-  const scrapeBtn = document.getElementById('scrapeBtn');
   const captureButton = document.getElementById('capture');
   const imgResultDiv = document.getElementById('screenshotContainer');
   const clearButton = document.getElementById('clearCapture');
+  const resultsDiv = document.getElementById('results');
+  const reviewResults = document.getElementById('reviewResults');
+
+  const loadingContainer = document.getElementById('loadingContainer');
+  const loadingText = document.getElementById('loadingText');
+  const progressFill = document.getElementById('progressFill');
+
+  const API_URL = 'http://localhost:8000/durian/review';
 
   let lastCroppedImage = null;
 
-  // API configuration
-  const API_URL = 'http://localhost:8000/durian/review';
+  // Enable submit only if model selected and text or image exists
+  function updateSubmitButtonState() {
+    if (
+      modelSelect.value &&
+      (reviewText.value.trim().length > 0 || lastCroppedImage !== null)
+    ) {
+      submitBtn.disabled = false;
+    } else {
+      submitBtn.disabled = true;
+    }
+  }
 
-  //--------------------Loading Session------------------
-  const showLoading = (text = 'Loading...') => {
-    document.getElementById('loadingText').textContent = text;
-    document.getElementById('loadingContainer').classList.remove('hidden');
+  // Show/hide loading
+  function showLoading(text = 'Loading...') {
+    loadingText.textContent = text;
+    loadingContainer.classList.remove('hidden');
     updateProgressBar(0);
-  };
+  }
+  function hideLoading() {
+    loadingContainer.classList.add('hidden');
+  }
+  function updateProgressBar(percent) {
+    progressFill.style.width = `${percent}%`;
+  }
 
-  const hideLoading = () => {
-    document.getElementById('loadingContainer').classList.add('hidden');
-  };
+  // Display captured image
+  function displayImage(dataUrl) {
+    imgResultDiv.innerHTML = '';
+    const img = new Image();
+    img.src = dataUrl;
+    img.alt = 'Cropped Screenshot';
+    img.style.maxWidth = '100%';
+    imgResultDiv.appendChild(img);
+    imgResultDiv.classList.remove('empty');
+    imgResultDiv.classList.add('has-image');
+    clearButton.classList.remove('hidden');
+    clearButton.classList.add('visible');
+    lastCroppedImage = dataUrl;
+    updateSubmitButtonState();
+  }
 
-  const updateProgressBar = (percent) => {
-    document.getElementById('progressFill').style.width = `${percent}%`;
-  };
+  // Clear capture
+  clearButton.addEventListener('click', () => {
+    imgResultDiv.innerHTML = '';
+    imgResultDiv.classList.add('empty');
+    imgResultDiv.classList.remove('has-image');
+    clearButton.classList.remove('visible');
+    clearButton.classList.add('hidden');
+    lastCroppedImage = null;
+    updateSubmitButtonState();
+  });
 
-  //------------------Function------------------------------
+  // Update submit button state on textarea and model change
+  reviewText.addEventListener('input', updateSubmitButtonState);
+  modelSelect.addEventListener('change', updateSubmitButtonState);
 
-  // Handle form submission
-  reviewForm.addEventListener('submit', async function(e) {
+  // Load last cropped image from chrome storage
+  chrome.storage.local.get('lastCroppedImage', (result) => {
+    if (result.lastCroppedImage) {
+      displayImage(result.lastCroppedImage);
+    }
+  });
+
+  // Listen for cropped image sent from content script
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'croppedImage') {
+      displayImage(request.dataUrl);
+      chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
+    }
+    return true;
+  });
+
+  // Capture button click: start capture flow
+  captureButton.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'capture' }, (response) => {
+      if (response.error) {
+        alert(response.error);
+        return;
+      }
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0].id;
+        chrome.scripting.executeScript(
+          {
+            target: { tabId },
+            files: ['crop.js'],
+          },
+          () => {
+            chrome.tabs.sendMessage(tabId, {
+              action: 'startCropping',
+              screenshot: response.screenshot,
+            });
+          }
+        );
+      });
+    });
+  });
+
+  // Form submit: send review text or captured image to backend
+  reviewForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    const reviewText = document.getElementById('reviewText').value.trim();
-    const modelSelect = document.getElementById('modelSelect').value;
-    
-    if (!reviewText) {
-      alert('Please enter review text');
+
+    if (!modelSelect.value) {
+      alert('Please select a model');
+      return;
+    }
+
+    // If no text but have image, send image only; else send text
+    let payload;
+    if (reviewText.value.trim().length > 0) {
+      payload = { text: reviewText.value.trim(), model: modelSelect.value };
+    } else if (lastCroppedImage) {
+      payload = { image: lastCroppedImage, model: modelSelect.value };
+    } else {
+      alert('Please enter review text or capture an image.');
       return;
     }
 
     showLoading('Analyzing review...');
     updateProgressBar(30);
-    // Set loading state
     submitBtn.disabled = true;
     submitBtn.textContent = 'Analyzing...';
 
     try {
-      // Make API request
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: reviewText,
-          model: modelSelect
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       updateProgressBar(60);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to analyze review');
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to analyze review');
       }
 
       const data = await response.json();
@@ -76,54 +160,37 @@ document.addEventListener('DOMContentLoaded', function() {
       updateProgressBar(90);
       setTimeout(hideLoading, 500);
     } catch (error) {
-      console.error('API Error:', error);
-      alert(`Error: ${error.message}`);
+      alert('Error: ' + error.message);
       hideLoading();
     } finally {
-      // Reset button state
       submitBtn.disabled = false;
       submitBtn.textContent = 'Analyze Review';
     }
   });
 
-  // Display results function
+  // Display results
   function displayResults(data) {
     reviewResults.innerHTML = '';
-    
-    data.forEach(result => {
-      const resultDiv = document.createElement('div');
-      resultDiv.className = 'result-item';
-      
-      // Review text
-      const reviewP = document.createElement('p');
-      reviewP.innerHTML = `<strong>Review:</strong> ${result.review}`;
-      resultDiv.appendChild(reviewP);
-      
-      // Label
-      const labelP = document.createElement('p');
-      labelP.innerHTML = `<strong>Label:</strong> ${result.label}`;
-      resultDiv.appendChild(labelP);
-      
-      // Confidence
-      const confidenceP = document.createElement('p');
-      confidenceP.innerHTML = `<strong>Confidence:</strong> ${(result.confidence * 100).toFixed(2)}%`;
-      resultDiv.appendChild(confidenceP);
-      
-      // Category (for fake reviews)
-      if (result.label === 'fake' && result.cluster_type) {
-        const categoryP = document.createElement('p');
-        categoryP.innerHTML = `<strong>Category:</strong> ${result.cluster_type?? 'Null'}`;
-        resultDiv.appendChild(categoryP);
-      }
-      
-      // Explanation (heatmap)
-      const explanationDiv = document.createElement('div');
-      explanationDiv.innerHTML = '<strong>Explanation:</strong>';
-      const heatmapDiv = document.createElement('div');
-      heatmapDiv.className = 'heatmap-container';
-      
+    data.forEach((result) => {
+      const div = document.createElement('div');
+      div.className = 'result-item';
+
+      div.innerHTML = `
+        <p><strong>Review:</strong> ${result.review}</p>
+        <p><strong>Label:</strong> ${result.label}</p>
+        <p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(2)}%</p>
+        ${
+          result.label === 'fake' && result.cluster_type
+            ? `<p><strong>Category:</strong> ${result.cluster_type}</p>`
+            : ''
+        }
+      `;
+
+      const heatmap = document.createElement('div');
+      heatmap.className = 'heatmap-container';
+
       if (result.explanation && Array.isArray(result.explanation)) {
-        const maxVal = Math.max(...result.explanation.map(([_, v]) => Math.abs(v))) || 1;
+        const maxVal = Math.max(...result.explanation.map(([, v]) => Math.abs(v))) || 1;
         result.explanation.forEach(([word, value]) => {
           const intensity = Math.abs(value) / maxVal;
           const red = Math.round(255 * intensity);
@@ -135,230 +202,14 @@ document.addEventListener('DOMContentLoaded', function() {
           span.style.margin = '2px';
           span.style.borderRadius = '3px';
           span.title = `Sentiment contribution: ${value.toFixed(4)}`;
-          heatmapDiv.appendChild(span);
+          heatmap.appendChild(span);
         });
       }
-      
-      explanationDiv.appendChild(heatmapDiv);
-      resultDiv.appendChild(explanationDiv);
-      reviewResults.appendChild(resultDiv);
+
+      div.appendChild(heatmap);
+      reviewResults.appendChild(div);
     });
-    
+
     resultsDiv.classList.remove('hidden');
   }
-
-  function displayImage(dataUrl) {
-    imgResultDiv.innerHTML = "";
-    const img = new Image();
-    img.src = dataUrl;
-    img.alt = "Cropped Screenshot";
-    img.style.maxWidth = "100%";
-    imgResultDiv.appendChild(img);
-    imgResultDiv.classList.remove('empty');
-    imgResultDiv.classList.add('has-image');
-    clearButton.classList.remove('hidden');
-    clearButton.classList.add('visible');
-  }
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && clearButton.classList.contains('visible')) {
-      clearButton.click();
-    }
-  });
-
-  clearButton.addEventListener("click", () => {
-    imgResultDiv.innerHTML = "";
-    imgResultDiv.classList.add('empty');
-    imgResultDiv.classList.remove('has-image');
-    clearButton.classList.remove('visible');
-    clearButton.classList.add('hidden');
-    chrome.storage.local.remove('lastCroppedImage');
-    document.getElementById('reviewText').placeholder = "Enter or paste review text here";
-  });
-
-  chrome.storage.local.get('lastCroppedImage', (result) => {
-    if (result.lastCroppedImage) {
-      displayImage(result.lastCroppedImage);
-    } else {
-      imgResultDiv.classList.add('empty');
-      clearButton.classList.remove('visible');
-      clearButton.classList.add('hidden');
-    }
-  });
-
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "croppedImage") {
-      lastCroppedImage = request.dataUrl;
-      displayImage(request.dataUrl);
-      chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
-    }
-    return true; 
-  });
-
-  captureButton.addEventListener("click", () => {
-    imgResultDiv.classList.add('active'); 
-
-    chrome.runtime.sendMessage({ action: "capture" }, (response) => {
-      if (response.error) {
-        alert(response.error);
-        return;
-      }
-
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tabId = tabs[0].id;
-        chrome.scripting.executeScript(
-          {
-            target: { tabId },
-            files: ["crop.js"]
-          },
-          () => {
-            chrome.tabs.sendMessage(tabId, {
-              action: "startCropping",
-              screenshot: response.screenshot
-            });
-          }
-        );
-      });
-    });
-  });
-  
-  platformSelect.addEventListener('change', function() {
-      const platformSelected = this.value !== "";
-      scrapeBtn.disabled = !platformSelected;
-      const urlInput = document.getElementById('urlInput');
-      if (platformSelected) {
-          urlInput.classList.remove('hidden');
-      } else {
-          urlInput.classList.add('hidden');
-      }
-      document.getElementById('scrapedText').classList.add('hidden');
-      document.getElementById('scrapedReviews').value = '';
-  });
-
-  scrapeBtn.addEventListener('click', async () => {
-    const platform = document.getElementById('platform').value;
-    const productUrl = document.getElementById('url').value.trim();
-
-    const platformDomains = {
-      amazon: "amazon.",
-      shopee: "shopee.",
-      lazada: "lazada."
-    }
-
-    if (!productUrl || !productUrl.includes(platformDomains[platform])) {
-      alert(`Please enter a valid ${platform} product URL`);
-      return;
-    }
-
-    showLoading(`Scraping ${platform.charAt(0).toUpperCase() + platform.slice(1)} reviews...`);
-    updateProgressBar(10);
-
-    chrome.tabs.create({ url: productUrl, active: false }, (tab) => {
-      const tabId = tab.id;
-      let attempts = 0;
-      const maxAttempts = 3;
-
-      const scrapeReviews = () => {
-        attempts++;
-        updateProgressBar(10 + (attempts * 25));
-
-        chrome.scripting.executeScript({
-          target: { tabId },
-          func: (platform) => {
-            if (document.querySelector('#captchacharacters')) {
-              return { status: 'captcha_blocked', reviews: [] };
-            }
-
-            let reviews = [];
-
-            if (platform === 'amazon') {
-              const containers = document.querySelectorAll('[data-hook="review"]');
-              containers.forEach(container => {
-                const textEl = container.querySelector('[data-hook="review-body"] span') || container.querySelector('.review-text-content');
-                if (textEl) reviews.push(textEl.textContent.trim());
-              });
-            } else if (platform === 'shopee') {
-              setTimeout(() => {
-                document.querySelectorAll('.shopee-product-rating__main, .YNedDV').forEach(el => {
-                  const text = el.textContent.trim();
-                  if (text) reviews.push(text);
-                });
-                console.log(reviews); 
-              }, 3000);
-            } else if (platform === 'lazada') {
-              return new Promise((resolve) => {
-                window.scrollTo(0, document.body.scrollHeight);
-                setTimeout(() => {
-                  const selectorsToTry = [
-                    '.item-content-main-content-reviews-item span',
-                    '.lzd-review-content span',
-                    '[class*="review"] span',
-                    '.next-card-body p'
-                  ];
-                  for (const selector of selectorsToTry) {
-                    const elements = document.querySelectorAll(selector);
-                    if (elements.length > 0) {
-                      elements.forEach(el => {
-                        const text = el.textContent.trim();
-                        if (text.length > 10) reviews.push(text);
-                      });
-                      break;
-                    }
-                  }
-                  resolve({
-                    status: reviews.length ? 'success' : 'no_reviews',
-                    reviews: reviews
-                  });
-                }, 3000);
-              });
-            }
-
-            return {
-              status: reviews.length ? 'success' : 'no_reviews',
-              reviews,
-              containerCount: reviews.length
-            };
-          },
-          args: [platform]
-        }, (results) => {
-          const result = results?.[0]?.result || { status: 'error', reviews: [] };
-
-          if (result.status === 'success' && result.reviews.length > 0) {
-            updateProgressBar(90);
-            const combined = result.reviews.join(' | ');  
-
-            chrome.storage.local.set({ extractedText: combined }, () => {
-              document.getElementById('scrapedReviews').value = combined;
-              document.querySelector('#scrapedText').style.display = 'block';
-
-              chrome.tabs.remove(tabId);
-              updateProgressBar(100);
-              setTimeout(() => {
-                hideLoading();
-                alert(`Successfully scraped ${result.reviews.length} ${platform} reviews!`);
-              }, 500);
-            });
-          }
-          else if (result.status === 'captcha_blocked') {
-            chrome.tabs.remove(tabId);
-            hideLoading();
-            alert(`${platform.charAt(0).toUpperCase() + platform.slice(1)} is showing CAPTCHA. Please solve it manually and try again.`);
-          }
-          else if (attempts < maxAttempts) {
-            setTimeout(scrapeReviews, 3000);
-          }
-          else {
-            chrome.tabs.remove(tabId);
-            hideLoading();
-            let message = `${platform.charAt(0).toUpperCase() + platform.slice(1)} Review Scraping Failed\n\n`;
-            message += `Technical details:\nStatus: ${result.status}\nReviews found: ${result.containerCount || 0}`;
-
-            alert(message);
-          }
-        });
-      };
-
-      setTimeout(scrapeReviews, 7000);
-    });
-  });
 });
