@@ -5,3 +5,4 @@ transformers
 lime
 pydantic
 numpy
+pytesseract
