@@ -145,6 +145,26 @@ select, textarea, input {
   cursor: not-allowed;
 }
 
+.secondary-btn {
+  background-color: #f8f9fa;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.secondary-btn:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.secondary-btn .icon {
+  margin-right: 5px;
+}
+
 .results-container {
   margin-top: 20px;
   padding: 15px;
@@ -256,49 +276,34 @@ select, textarea, input {
   margin-top: 5px;
 }
 
-.small-btn {
-  padding: 6px 12px;
-  background-color: #ffebee;
-  color: #c62828;
-  border: 1px solid #ef9a9a;
+.clear-all-section {
+  margin-top: 20px;
+  text-align: center;
+}
+
+/* Add to your CSS file */
+.text-appear {
+  animation: textHighlight 1s ease-out;
+  border: 2px solid #4CAF50;
+}
+
+@keyframes textHighlight {
+  0% { background-color: rgba(76, 175, 80, 0.1); }
+  100% { background-color: transparent; }
+}
+
+/* Style the textarea for better visibility */
+#reviewText {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 12px;
-  transition: all 0.2s;
+  font-family: inherit;
+  transition: all 0.3s ease;
 }
 
-.small-btn:hover {
-  background-color: #ffcdd2;
-}
-
-#clearCapture {
-  display: none; 
-}
-
-#clearCapture.hidden {
-  display: none;
-}
-
-#clearCapture.visible {
-  display: inline-block; 
-}
-
-#clearCapture::after {
-  content: "Remove screenshot";
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #333;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-#clearCapture:hover::after {
-  opacity: 1;
+#reviewText:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+  outline: none;
 }

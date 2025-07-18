@@ -40,9 +40,6 @@
             <span>Capture & Crop from Screen</span>
           </button>
           <div id="screenshotContainer" class="empty"></div>
-          <div class="clear-btn-container">
-            <button id="clearCapture" class="hidden small-btn">Clear</button>
-          </div>
           <canvas id="overlayCanvas"></canvas>
         </div>
         <div class="or-divider">
@@ -75,6 +72,12 @@
       <div class="submit-section">
         <button type="submit" id="submitBtn" class="primary-btn" disabled>
           Analyze Review
+        </button>
+      </div>
+      <div class="clear-all-section">
+        <button type="button" id="clearAll" class="secondary-btn">
+          <span class="icon">🗑️</span>
+          <span>Clear All</span>
         </button>
       </div>
     </form>
