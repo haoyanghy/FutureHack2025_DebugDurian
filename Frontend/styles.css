@@ -254,14 +254,14 @@ select, textarea, input {
 }
 
 #screenshotContainer {
-  max-height: 150px;
-  min-height: 80px;
+  max-height: 250px; 
+  min-height: 100px;
   max-width: 100%;
-  overflow: hidden;
+  overflow: auto;
   margin-top: 10px;
   border-radius: 6px;
   border: 2px dashed #c8e6c9;
-  background-color: #f8fdf8;
+  background-color: #f8fdf8; 
   transition: all 0.3s ease;
   display: flex;
   justify-content: center;
@@ -299,9 +299,11 @@ select, textarea, input {
 
 #screenshotContainer img {
   max-width: 100%;
-  max-height: 250px;
+  max-height: 100%; 
   border-radius: 4px;
   display: block;
+  object-fit: contain; 
+  margin: 0 auto; 
 }
 
 #screenshotContainer:not(.empty) {
@@ -319,10 +321,6 @@ select, textarea, input {
 #screenshotContainer.empty.active::before {
   display: block;
   padding: 10px;
-}
-
-#overlayCanvas {
-  max-height: 150px;
 }
 
 .clear-btn-container {

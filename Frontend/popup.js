@@ -62,9 +62,14 @@ document.addEventListener('DOMContentLoaded', function() {
     currentInputMethod = 'image';
     imgResultDiv.classList.add('active');
     
-    chrome.runtime.sendMessage({ action: "capture" }, (response) => {
+    showLoading('Capturing screenshot...');
+    chrome.runtime.sendMessage({ 
+      action: "capture",
+      model: modelSelect.value // Pass selected model
+    }, (response) => {
       if (response.error) {
-        alert(response.error);
+        hideLoading();
+        alert(`Capture failed: ${response.error}`);
         return;
       }
 
@@ -76,9 +81,18 @@ document.addEventListener('DOMContentLoaded', function() {
             files: ["crop.js"]
           },
           () => {
+            if (chrome.runtime.lastError) {
+              hideLoading();
+              alert(`Cropping failed: ${chrome.runtime.lastError.message}`);
+              return;
+            }
             chrome.tabs.sendMessage(tabId, {
               action: "startCropping",
-              screenshot: response.screenshot
+              screenshot: response.screenshot,
+              model: modelSelect.value // Pass model to crop.js
+            }, () => {
+              hideLoading();
+              alert('Please drag to crop the screen. Reopen the extension to view results.');
             });
           }
         );
@@ -106,8 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!lastCroppedImage) {
             throw new Error('No image captured');
           }
-          const extracted = await extractTextFromImage(lastCroppedImage);
-          reviewText = extracted.text;
+          reviewText = reviewTextarea.value.trim(); 
           break;
           
         case 'scrape':
@@ -122,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
           reviewText = await scrapeReviews(platform, productUrl);
           scrapedReviews.value = reviewText.formatted;
           scrapedTextDiv.classList.remove('hidden');
-          reviewText = reviewText.combined; // Use combined for backend
+          reviewText = reviewText.combined;
           break;
       }
 
@@ -146,55 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   clearAllBtn.addEventListener('click', clearAll);
 
-  // --------------Core Functions------------------------------
-
-  // Handle cropped image
-  chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-    if (request.action === "croppedImage") {
-      try {
-        lastCroppedImage = request.dataUrl;
-        displayImage(request.dataUrl);
-        chrome.storage.local.set({ lastCroppedImage: request.dataUrl });
-        
-        alert('Extracting text from cropped image...');
-        showLoading('Extracting text from image...');
-        const extracted = await extractTextFromImage(request.dataUrl);
-        
-        console.log("Extracted text:", extracted.text);
-        reviewTextarea.value = extracted.text;
-        reviewTextarea.focus();
-        currentInputMethod = 'image';
-        updateSubmitButtonState();
-        
-      } catch (error) {
-        console.error('Extraction failed:', error);
-        alert('Text extraction failed: ' + error.message);
-      } finally {
-        hideLoading();
-      }
-    }
-  });
-
   // --------------Helper Functions------------------------------
-
-  async function extractTextFromImage(imageDataUrl) {
-    // Remove the header "data:image/png;base64," if present
-    const base64 = imageDataUrl.split(',')[1];
-    const model = modelSelect.value;
-
-    const response = await fetch(EXTRACT_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imgPath: base64, model })
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Extraction failed');
-    }
-
-    return await response.json();
-  }
 
   async function analyzeText(text, model) {
     const response = await fetch(API_URL, {
@@ -352,6 +317,8 @@ document.addEventListener('DOMContentLoaded', function() {
     img.src = dataUrl;
     img.alt = "Cropped Screenshot";
     img.style.maxWidth = "100%";
+    img.style.maxHeight = "100%"; 
+    img.style.objectFit = "contain"; 
     imgResultDiv.appendChild(img);
     imgResultDiv.classList.remove('empty');
     imgResultDiv.classList.add('has-image');
@@ -360,15 +327,27 @@ document.addEventListener('DOMContentLoaded', function() {
   async function initializeFromStorage() {
     try {
       const result = await new Promise(resolve => {
-        chrome.storage.local.get(['lastExtractedText', 'lastCroppedImage'], resolve);
+        chrome.storage.local.get(['lastExtractedText', 'lastCroppedImage', 'croppedImageResult'], resolve);
       });
 
       if (result.lastExtractedText) {
         reviewTextarea.value = result.lastExtractedText;
         currentInputMethod = 'text';
+        reviewTextarea.dispatchEvent(new Event('input')); 
       }
 
-      if (result.lastCroppedImage) {
+      if (result.croppedImageResult) {
+        if (result.croppedImageResult.error) {
+          alert(`Text extraction failed: ${result.croppedImageResult.error}`);
+        } else {
+          reviewTextarea.value = result.croppedImageResult.text;
+          lastCroppedImage = result.croppedImageResult.dataUrl;
+          displayImage(lastCroppedImage);
+          currentInputMethod = 'image';
+          reviewTextarea.dispatchEvent(new Event('input')); 
+        }
+        chrome.storage.local.remove('croppedImageResult'); 
+      } else if (result.lastCroppedImage) {
         lastCroppedImage = result.lastCroppedImage;
         displayImage(lastCroppedImage);
         currentInputMethod = 'image';
@@ -402,7 +381,8 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.storage.local.remove([
       'lastCroppedImage',
       'lastExtractedText',
-      'lastExtractionTime'
+      'lastExtractionTime',
+      'croppedImageResult'
     ]);
 
     submitBtn.disabled = true;

@@ -6,3 +6,4 @@ lime
 pydantic
 numpy
 pytesseract
+pillow
