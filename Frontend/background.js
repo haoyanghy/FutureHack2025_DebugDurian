@@ -1,24 +1,17 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'captureScreen') {
-    chrome.desktopCapture.chooseDesktopMedia(
-      ['screen', 'window', 'tab'],
-      (streamId) => {
-        if (!streamId) {
-          sendResponse({ error: 'No stream selected' });
-          return;
-        }
-
-        // Request screenshot from active tab
-        chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-          if (chrome.runtime.lastError) {
-            console.error(chrome.runtime.lastError);
-            sendResponse({ error: 'Failed to capture screenshot' });
-            return;
-          }
-          sendResponse({ dataUrl });
-        });
+  if (request.action === "capture") {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const url = tabs[0].url;
+      if (url.startsWith("chrome://") || url.startsWith("chrome-extension://")) {
+        sendResponse({ error: "Cannot capture chrome:// or extension pages" });
+        return;
       }
-    );
-    return true; // Keep message channel open for async response
+
+      chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+        sendResponse({ screenshot: dataUrl });
+      });
+    });
+
+    return true; // keep channel open for async response
   }
 });
